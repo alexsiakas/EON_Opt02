@@ -1,0 +1,6 @@
+numpy
+datetime
+PyAstronomy
+ephem
+astropy
+matplotlib
