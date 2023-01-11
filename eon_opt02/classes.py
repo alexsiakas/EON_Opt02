@@ -303,7 +303,7 @@ class LightCurve:
 
             print('\n'.join(self.comments))
 	
-	#Input by Alex 11/01/2022
+	#Input by Alex 11/01/2022.
 	def write_txt(self,directory = None):#self
 		t0_JD = int(self.JD[0]) #JD Date of first point in tracklet
 		t0_UTC = self.UTC[0].split('T')[0] # ISO Date of first point in tracklet
