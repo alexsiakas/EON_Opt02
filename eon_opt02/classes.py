@@ -302,11 +302,62 @@ class LightCurve:
         else:
 
             print('\n'.join(self.comments))
+	
+	#Input by Alex 11/01/2022
+	def write_txt(self,directory = None):#self
+		t0_JD = int(self.JD[0]) #JD Date of first point in tracklet
+		t0_UTC = self.UTC[0].split('T')[0] # ISO Date of first point in tracklet
+		file_name = str(int(self.NORADID)) +'_'+ str(t0_JD) +'.txt' # create filename
+		print(file_name)
+
+		file_exists = exists(directory+'/'+file_name)
+		if file_exists: # check if file exists
+			print('Check existing file')
+
+			#check if tracklet is already in file
+			with open(directory+'/'+file_name, 'r', encoding='utf8') as f:
+				lines = f.readlines()
+
+			found = False
+			for i, line in enumerate(lines):
+				if line.startswith(str(int(self.TRACKLET))): # replace tracklet results
+					lines[i] = "{0}, {1}".format(str(int(self.TRACKLET)), str(self.physical_class))
+					found = True
+					break
+
+			if not found: #Add tracklet results
+				lines.append("{0}, {1}".format('\n'+str(int(self.TRACKLET)), str(self.physical_class)))
+
+			with open(directory+'/'+file_name, 'w', encoding='utf8') as f:
+				f.writelines(lines)
+
+		else:
+			#write a new file
+			print('write new file')
+
+			txt = [
+				'Satellite NORADID : {0}'.format(self.NORADID),
+				'Date JD : {0}'.format(t0_JD),
+				'Date UTC : {0}'.format(t0_UTC),
+			]
+
+			txt.append('Tracklet,Periodicity class')
+			txt.append(','.join([
+				str(int(self.TRACKLET)), 
+				str(self.physical_class),
+			]))
+
+			if directory:
+				w = open(directory+'/'+file_name, 'w')
+				w.write('\n'.join(txt))
+				w.close()
+
 
     def export(self, directory):
 
         self.plot(directory)
         self.csv(directory)
+		self.write_txt(directory) # 11/01/2022 A.
 
     def show(self):
 
