@@ -323,7 +323,7 @@ class LightCurve:
 				if line.startswith(str(int(self.TRACKLET))): # replace tracklet results
 					lines[i] = "{0}, {1}".format(str(int(self.TRACKLET)), str(self.physical_class))
 					found = True
-					break
+					break 
 
 			if not found: #Add tracklet results
 				lines.append("{0}, {1}".format('\n'+str(int(self.TRACKLET)), str(self.physical_class)))
