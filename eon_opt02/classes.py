@@ -5,9 +5,7 @@ import numpy as np
 import datetime
 import os
 import matplotlib.pyplot as plt
-
 from eon_opt02.tools import *
-
 
 class LightCurve:
 
@@ -302,62 +300,50 @@ class LightCurve:
         else:
 
             print('\n'.join(self.comments))
-	
-	#Input by Alex 11/01/2022.
-	def write_txt(self,directory = None):#self
-		t0_JD = int(self.JD[0]) #JD Date of first point in tracklet
-		t0_UTC = self.UTC[0].split('T')[0] # ISO Date of first point in tracklet
-		file_name = str(int(self.NORADID)) +'_'+ str(t0_JD) +'.txt' # create filename
-		print(file_name)
 
-		file_exists = exists(directory+'/'+file_name)
-		if file_exists: # check if file exists
-			print('Check existing file')
+    def write_txt(self,directory = None):#self
+        t0_UTC = self.UTC[0] # ISO Date of first point in tracklet
+        file_name = f'history_{int(self.NORADID)}.txt' # create filename
+    
+        file_exists = os.path.exists(directory+'/'+file_name)
+        if file_exists: # check if file exists
+    
+            #check if tracklet is already in file
+            with open(directory+'/'+file_name, 'r', encoding='utf8') as f:
+                lines = f.readlines()
+    
+            found = False
+            for i, line in enumerate(lines):
+                if line.startswith(str(int(self.TRACKLET))+'|'+str(t0_UTC)): # replace tracklet results
+                    lines[i] = f'{int(self.TRACKLET)}|{t0_UTC[0:21] : <22}|{str(self.period) : ^18}|{self.long_period : ^11}|{self.physical_class : <54}|{self.additional_periods}'
+                    found = True
+                    break
 
-			#check if tracklet is already in file
-			with open(directory+'/'+file_name, 'r', encoding='utf8') as f:
-				lines = f.readlines()
+            if not found: #Add tracklet results
+                lines.append(f'\n{int(self.TRACKLET)}|{t0_UTC[0:21] : <22}|{str(self.period) : ^18}|{self.long_period : ^11}|{self.physical_class : <54}|{self.additional_periods}')
+                lines[2:].sort(key=lambda line: line.split("|")[1])
 
-			found = False
-			for i, line in enumerate(lines):
-				if line.startswith(str(int(self.TRACKLET))): # replace tracklet results
-					lines[i] = "{0}, {1}".format(str(int(self.TRACKLET)), str(self.physical_class))
-					found = True
-					break 
+            with open(directory+'/'+file_name, 'w', encoding='utf8') as f:
+                f.writelines(lines)
+        else:
+        #write a new file
+            txt = [
+                'Satellite NORADID : {0}'.format(int(self.NORADID)),
+            ]
+            header = ['Tracklet','Date','Main Period','Long period','Periodicity class','Additional periods']
+            txt.append(f'{header[0]}|{header[1] : ^22}|{header[2] : ^18}|{header[3] : ^11}|{header[4] : ^54}|{header[5]}')
+            txt.append(f'{int(self.TRACKLET)}|{t0_UTC[0:21] : <22}|{str(self.period) : ^17}|{self.long_period : ^11}|{self.physical_class : <54}|{self.additional_periods}')
 
-			if not found: #Add tracklet results
-				lines.append("{0}, {1}".format('\n'+str(int(self.TRACKLET)), str(self.physical_class)))
-
-			with open(directory+'/'+file_name, 'w', encoding='utf8') as f:
-				f.writelines(lines)
-
-		else:
-			#write a new file
-			print('write new file')
-
-			txt = [
-				'Satellite NORADID : {0}'.format(self.NORADID),
-				'Date JD : {0}'.format(t0_JD),
-				'Date UTC : {0}'.format(t0_UTC),
-			]
-
-			txt.append('Tracklet,Periodicity class')
-			txt.append(','.join([
-				str(int(self.TRACKLET)), 
-				str(self.physical_class),
-			]))
-
-			if directory:
-				w = open(directory+'/'+file_name, 'w')
-				w.write('\n'.join(txt))
-				w.close()
-
+            if directory:
+                w = open(directory+'/'+file_name, 'w')
+                w.write('\n'.join(txt))
+                w.close() 
 
     def export(self, directory):
 
         self.plot(directory)
         self.csv(directory)
-		self.write_txt(directory) # 11/01/2022 A.
+        self.write_txt(directory)
 
     def show(self):
 
