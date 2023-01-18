@@ -1,5 +1,5 @@
 
-__all__ = ['conver_to_jd', 'get_sensor', 'detrend', 'periodogram', 'get_range_phase']
+__all__ = ['conver_to_jd', 'get_sensor', 'detrend', 'periodogram', 'get_range_phase', 'build_model']
 
 import numpy as np
 import datetime
@@ -222,6 +222,49 @@ def periodogram(jd, mag,
 
 
     return np.array(periodogram), np.array(periods), long_period, np.array(total_signal), np.array(lt_signal), np.array(signals)
+
+
+def comp_tr_lp(x,y, std_limit):
+    if len(x) == len(y):
+        differ = np.array(x) - np.array(y)
+    else:
+        hw = int((len(y) - len(x))/2)
+        differ = np.array(x) - np.array(y[hw + 1: - hw + 1])
+    md = np.mean(differ) 
+    stdd = np.std(differ) 
+    print(f'mean value = {md}')
+    print(f'stdd = {stdd}')
+    print(f' max differ = {np.max(differ)}')
+    res = False
+    if np.abs(md) < stdd and stdd < std_limit:    # if mean value < 0.1 (close to 0) and std < std_lc , trend == sin model 
+        res = True
+    return res
+
+
+def build_model(statistical_class, mag, trend, total_signal1, total_signal2): #lc_class -> self
+    std_lc = np.std(mag)
+    if statistical_class == 1 or statistical_class == 2:
+        model = trend 
+    elif statistical_class == 3 or statistical_class == 4:
+        is_same = comp_tr_lp(trend, total_signal1, std_lc)
+        if is_same:
+            model = total_signal1
+        else:
+            if len(total_signal1) == len(trend) :
+                model = total_signal1 + trend - np.median(mag)
+            else:
+                hw = int((len(total_signal1) - len(trend))/2)
+                model = total_signal1[hw + 1: - hw + 1] + trend  
+    elif statistical_class == 5 or statistical_class == 6 or statistical_class == 7 or statistical_class == 8:
+        model = total_signal2 + trend
+      
+    if len(model) < len(mag):
+        hw = int((len(mag) - len(model))/2)
+        addnan = np.empty(hw)
+        addnan[:] = np.nan
+        model = np.append(addnan,model)
+        model = np.append(model,addnan)
+    return model 
 
 
 def get_range_phase(tle_line1, tle_line2, dates, sensor_lat, sensor_lon, sensor_elev):

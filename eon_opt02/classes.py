@@ -272,10 +272,10 @@ class LightCurve:
 
         if self.ANGLE_TYPE == 'RADEC':
             csv.append('OBSid,TimeSinceFirstEpoch[sec],FOVra[deg],FOVdec[deg],SigPlate[deg],'
-                       'Mag,SigMag,PhaseAngle,Distance,STMag')
+                       'Mag,SigMag,PhaseAngle,Distance,STMag,Model')
         else:
             csv.append('OBSid,TimeSinceFirstEpoch[sec],FOVaz[deg],FOVel[deg],SigPlate[deg],'
-                       'Mag,SigMag,PhaseAngle,Distance,STMag')
+                       'Mag,SigMag,PhaseAngle,Distance,STMag,Model')
 
         for entry in range(len(self.JD)):
             csv.append(','.join([
@@ -289,6 +289,7 @@ class LightCurve:
                 str(self.phase[entry]),
                 str(self.distance[entry]),
                 str(self.stmag[entry]),
+                str(self.model[entry]),
             ]))
 
         if directory:
@@ -315,12 +316,12 @@ class LightCurve:
             found = False
             for i, line in enumerate(lines):
                 if line.startswith(str(int(self.TRACKLET))+'|'+str(t0_UTC)): # replace tracklet results
-                    lines[i] = f'{int(self.TRACKLET)}|{t0_UTC[0:21] : <22}|{str(self.period) : ^18}|{self.long_period : ^11}|{self.physical_class : <54}|{self.additional_periods}'
+                    lines[i] = f'\n{int(self.TRACKLET) : <8}|{t0_UTC[0:21] : <22}|{str(self.period) : ^18}|{self.long_period : ^11}|{self.physical_class : <54}|{self.additional_periods}'
                     found = True
                     break
 
             if not found: #Add tracklet results
-                lines.append(f'\n{int(self.TRACKLET)}|{t0_UTC[0:21] : <22}|{str(self.period) : ^18}|{self.long_period : ^11}|{self.physical_class : <54}|{self.additional_periods}')
+                lines.append(f'\n{int(self.TRACKLET) : <8}|{t0_UTC[0:21] : <22}|{str(self.period) : ^18}|{self.long_period : ^11}|{self.physical_class : <54}|{self.additional_periods}')
                 lines[2:].sort(key=lambda line: line.split("|")[1])
 
             with open(directory+'/'+file_name, 'w', encoding='utf8') as f:
@@ -331,8 +332,8 @@ class LightCurve:
                 'Satellite NORADID : {0}'.format(int(self.NORADID)),
             ]
             header = ['Tracklet','Date','Main Period','Long period','Periodicity class','Additional periods']
-            txt.append(f'{header[0]}|{header[1] : ^22}|{header[2] : ^18}|{header[3] : ^11}|{header[4] : ^54}|{header[5]}')
-            txt.append(f'{int(self.TRACKLET)}|{t0_UTC[0:21] : <22}|{str(self.period) : ^17}|{self.long_period : ^11}|{self.physical_class : <54}|{self.additional_periods}')
+            txt.append(f'{header[0] : <8}|{header[1] : ^22}|{header[2] : ^18}|{header[3] : ^11}|{header[4] : ^54}|{header[5]}')
+            txt.append(f'{int(self.TRACKLET) : <8}|{t0_UTC[0:21] : <22}|{str(self.period) : ^18}|{self.long_period : ^11}|{self.physical_class : <54}|{self.additional_periods}')
 
             if directory:
                 w = open(directory+'/'+file_name, 'w')
@@ -515,6 +516,7 @@ class LightCurve:
                 xx += ' Multiplied by {0} for minimum PDM.'.format(period[6])
             self.comments.append(xx)
 
+        self.model = build_model(self.statistical_class, self.MAG, self.trend, self.total_signal1, self.total_signal2)
         #         export or show
 
         if export:
