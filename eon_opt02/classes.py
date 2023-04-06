@@ -705,6 +705,7 @@ class LightCurve:
         else:
             self.comments_2.append('None')
         self.model, self.model_plot = build_model(self.MAG, self.trend, self.signals2, self.harmonic_signals2, self.low_power_signals2)
+
         #         export or show
 
         if export:

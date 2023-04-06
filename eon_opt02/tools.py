@@ -109,7 +109,7 @@ def detrend(times, mag, half_window=10, poly_deg=1, limit_to_single_winow=5, sin
             detrended_mag = mag[half_window + 1: - half_window + 1]  - trend
             trend_type = 'moving_poly'
 
-    return trend, detrended_times, detrended_mag
+    return trend, detrended_times, detrended_mag, trend_type
 
 def test_trend(trend, jd, mag, peaks, fake_peaks, harmonic_peaks, trend_type,limit = 0.2,
                 period_max=2.0, period_min=0.5, period_step=0.01, fap_limit=0.001, long_period_peak_ratio=0.9,
