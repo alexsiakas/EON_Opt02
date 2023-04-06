@@ -5,6 +5,8 @@ import numpy as np
 import datetime
 import os
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+from fractions import Fraction
 from eon_opt02.tools import *
 
 class LightCurve:
@@ -103,6 +105,12 @@ class LightCurve:
         ax2.plot(1/self.periodogramm1[0], self.periodogramm1[1], 'b', zorder=1)
         for period in self.periods1:
             ax2.axvline(period[1], ls='--', c='r', zorder=2)
+        for fake in self.fake_peaks1:
+            ax2.axvline(fake[1], ls='--', c='m', zorder=2)
+        for low_p in self.low_power_periods1:
+            ax2.axvline(low_p[1], ls='--', c='g', zorder=2)
+        for har_p in self.harmonic_peaks1:
+            ax2.axvline(har_p[1], ls='--', c='c', zorder=2)
         ax2.set_xscale('log')
         ax2.set_title('RAW LC / Periodogramm')
 
@@ -172,6 +180,12 @@ class LightCurve:
         ax6.plot(1/self.periodogramm2[0], self.periodogramm2[1], 'b', zorder=1)
         for period in self.periods2:
             ax6.axvline(period[1], ls='--', c='r', zorder=2)
+        for fake in self.fake_peaks2:
+            ax6.axvline(fake[1], ls='--', c='m', zorder=2)
+        for low_p in self.low_power_periods2:
+            ax6.axvline(low_p[1], ls='--', c='g', zorder=2)
+        for har_p in self.harmonic_peaks2:
+            ax6.axvline(har_p[1], ls='--', c='c', zorder=2)
         ax6.set_xlim(ax2.get_xlim())
         ax6.set_xscale('log')
         ax6.set_title('DT LC / Periodogramm')
@@ -228,15 +242,67 @@ class LightCurve:
 
         fig.subplots_adjust(bottom=0.05, top=0.9, left=0.1, right=0.99, hspace=0.5, wspace=0.25)
 
-        if directory:
+        fig2 = plt.figure(figsize=(9, 10))
+        fig2.suptitle(self.name)
 
-            fig.savefig(os.path.join(directory, self.name + '.pdf'))
+        ax21 = fig2.add_subplot(2,1,1)
+        ax21.plot(self.pdm_per1, self.thetas1, 'b-')
+        colors = ['r', 'g', 'k']
+        for p_idx in range(0,2):
+            try :
+                pdmp = self.pdm_peaks1[p_idx]
+                th = self.pdm_peak_thetas1[p_idx]
+            except:
+                continue
+            for pdidx in range(len(pdmp)):
+                ax21.axvline(pdmp[pdidx],ls='--', c=colors[p_idx], zorder=1)
+        ax21.set_title('RAW PDM')
+        ax21.set_xlabel('Periods')
+        ax21.set_ylabel('Thetas')
+
+        ax22 = fig2.add_subplot(2,1,2)
+        ax22.plot(self.pdm_per2, self.thetas2, 'b-')
+        for p_idx in range(0,2):
+            try :
+                pdmp = self.pdm_peaks2[p_idx]
+                th = self.pdm_peak_thetas2[p_idx]
+            except:
+                continue
+            for pdidx in range(len(pdmp)):
+                ax22.axvline(pdmp[pdidx],ls='--', c=colors[p_idx], zorder=1)
+        ax22.set_title('DT PDM')
+        ax22.set_xlabel('Periods')
+        ax22.set_ylabel('Thetas')
+        fig2.subplots_adjust(bottom=0.05, top=0.9, left=0.1, right=0.99, hspace=0.5, wspace=0.25)
+
+        fig3 = plt.figure()
+        ax31 = fig3.add_subplot(1,1,1)
+        ax31.plot(self.DT,self.MAG, 'ko')
+        ax31.plot(self.detrended_dt, self.model_plot, 'g-')
+        ax31.set_title('Final Model')
+        ax31.set_xlabel('Time [s]')
+        ax31.set_ylabel('Magnitude')
+        fig3.subplots_adjust(bottom=0.05, top=0.9, left=0.1, right=0.99, hspace=0.5, wspace=0.25)
+
+
+        if directory:
+            pdfpag = PdfPages(os.path.join(directory, self.name + '.pdf'))
+            fig_nums = plt.get_fignums()
+            figs = [plt.figure(n) for n in fig_nums]
+            for figu in figs:
+                figu.savefig(pdfpag, format='pdf')
+            #fig.savefig(os.path.join(directory, self.name + '.pdf'))
+            #fig2.savefig(os.path.join(directory, self.name + '.pdf'))
+            #plt.close('all')
+            pdfpag.close()
             plt.close('all')
             del fig
 
         else:
 
             fig.show()
+            fig2.show()
+            fig3.show()
 
     def csv(self, directory=None):
 
@@ -261,9 +327,7 @@ class LightCurve:
             'Exposure time [sec]: {0}'.format(
                 round(np.median(np.int_(self.DT[1:]*1000000)-np.int_(self.DT[:-1]*1000000))/1000000, 6)
             ),
-            'Periodicity class: {0}'.format(self.physical_class),
-            'Period [s]: {0}'.format(self.period),
-            'Additional periods [s]: {0}'.format(','.join([str(ff) for ff in self.additional_periods])),
+            '\n'.join(ff for ff in self.comments_2),
             'Periodicity classification comments:\n{0}'.format(
                 '\n'.join(['            ' + ff for ff in self.comments])
             ),
@@ -315,14 +379,15 @@ class LightCurve:
     
             found = False
             for i, line in enumerate(lines):
-                if line.startswith(str(int(self.TRACKLET))+'|'+str(t0_UTC)): # replace tracklet results
-                    lines[i] = f'\n{int(self.TRACKLET) : <8}|{t0_UTC[0:21] : <22}|{str(self.period) : ^18}|{self.long_period : ^11}|{self.physical_class : <54}|{self.additional_periods}'
+                if line.startswith(f'{int(self.TRACKLET) : <8}|{t0_UTC[0:21] : <22}'): # replace tracklet results
+                    lines[i] = f'{int(self.TRACKLET) : <8}|{t0_UTC[0:21] : <22}|{str(self.period) : ^18}|{str(self.pdm_period2) : ^18}|{self.long_period : ^11}|{self.physical_class : <54}|{self.additional_periods}|[{",".join(str(ff[1]) for ff in self.harmonic_peaks2)}]|[{",".join(str(ff[1]) for ff in self.low_power_periods2)}]\n'
                     found = True
                     break
 
             if not found: #Add tracklet results
-                lines.append(f'\n{int(self.TRACKLET) : <8}|{t0_UTC[0:21] : <22}|{str(self.period) : ^18}|{self.long_period : ^11}|{self.physical_class : <54}|{self.additional_periods}')
-                lines[2:].sort(key=lambda line: line.split("|")[1])
+                lines.append(f'{int(self.TRACKLET) : <8}|{t0_UTC[0:21] : <22}|{str(self.period) : ^18}|{str(self.pdm_period2) : ^18}|{self.long_period : ^11}|{self.physical_class : <54}|{self.additional_periods}|[{",".join(str(ff[1]) for ff in self.harmonic_peaks2)}]|[{",".join(str(ff[1]) for ff in self.low_power_periods2)}]\n')
+                
+            lines[2:].sort(key=lambda line: line.split("|")[1])
 
             with open(directory+'/'+file_name, 'w', encoding='utf8') as f:
                 f.writelines(lines)
@@ -331,9 +396,9 @@ class LightCurve:
             txt = [
                 'Satellite NORADID : {0}'.format(int(self.NORADID)),
             ]
-            header = ['Tracklet','Date','Main Period','Long period','Periodicity class','Additional periods']
-            txt.append(f'{header[0] : <8}|{header[1] : ^22}|{header[2] : ^18}|{header[3] : ^11}|{header[4] : ^54}|{header[5]}')
-            txt.append(f'{int(self.TRACKLET) : <8}|{t0_UTC[0:21] : <22}|{str(self.period) : ^18}|{self.long_period : ^11}|{self.physical_class : <54}|{self.additional_periods}')
+            header = ['Tracklet','Date','Max Power Period','Min PDM Period','Long period','Periodicity class','Additional periods','Harmonics','Low_Power']
+            txt.append(f'{header[0] : <8}|{header[1] : ^22}|{header[2] : ^18}|{header[3] : ^18}|{header[4] : ^11}|{header[5] : ^54}|{header[6]}|{header[7]}|{header[8]}')
+            txt.append(f'{int(self.TRACKLET) : <8}|{t0_UTC[0:21] : <22}|{str(self.period) : ^18}|{str(self.pdm_period2) : ^18}|{self.long_period : ^11}|{self.physical_class : <54}|{self.additional_periods}|[{",".join(str(ff[1]) for ff in self.harmonic_peaks2)}]|[{",".join(str(ff[1]) for ff in self.low_power_periods2)}]\n')
 
             if directory:
                 w = open(directory+'/'+file_name, 'w')
@@ -375,12 +440,36 @@ class LightCurve:
         #         periodogramm
 
         (self.periodogramm1, self.periods1, self.long_period, self.total_signal1, self.lt_signal1,
-         self.signals1) = periodogram(self.DT, self.MAG, period_max=period_max, period_min=period_min,
+         self.signals1,self.low_power_periods1,self.low_power_signals1) = periodogram(self.DT, self.MAG, period_max=period_max, period_min=period_min,
                                       period_step=period_step, fap_limit=fap_limit,
                                       long_period_peak_ratio=long_period_peak_ratio,
                                       cleaning_max_power_ratio=cleaning_max_power_ratio,
                                       cleaning_alliase_proximity_ratio=cleaning_alliase_proximity_ratio,
                                       pdm_bins=pdm_bins)
+
+        #         Check for false positives
+        self.fake_peaks1 = []
+        if len(self.periods1) > 0:
+            (self.periods1, self.total_signal1, 
+            self.signals1,self.fake_peaks1, self.harmonic_peaks1,self.harmonic_signals1) = FalsePositive(self.DT, self.MAG, self.periods1, self.signals1,false_limit = 0.2,
+                                      period_max=period_max, period_min=period_min,
+                                      period_step=period_step, fap_limit=fap_limit,
+                                      long_period_peak_ratio=long_period_peak_ratio,
+                                      cleaning_max_power_ratio=cleaning_max_power_ratio,
+                                      cleaning_alliase_proximity_ratio=cleaning_alliase_proximity_ratio,
+                                      pdm_bins=pdm_bins)
+        else:
+            self.harmonic_peaks1=[] 
+
+        self.pdm_per1, self.thetas1, self.pdm_dominant_period1 = full_PDM(self.DT, self.MAG,self.periods1,self.harmonic_peaks1, period_max=2.0, period_min=0.5, period_step=0.001, pdm_bins = 20)
+
+        if self.pdm_dominant_period1 is not None:
+            self.pdm_period1 = self.pdm_dominant_period1[1]
+        else:
+            if len(self.periods1) > 0:
+                self.pdm_period1 = self.periods1[0][1] * self.periods1[0][6]
+            else:
+                self.pdm_period1 = None
 
         #         test of repetitions to clean residuals
 
@@ -389,7 +478,7 @@ class LightCurve:
         test_mag = np.ones_like(self.MAG) * self.MAG - self.total_signal1
         for i in range(200):
             (periodogramm, periods, long_period, total_signal, lt_signal,
-             signals) = periodogram(self.DT, test_mag, period_max=period_max, period_min=period_min,
+             signals,_,_) = periodogram(self.DT, test_mag, period_max=period_max, period_min=period_min,
                                     period_step=period_step, fap_limit=fap_limit,
                                     long_period_peak_ratio=long_period_peak_ratio,
                                     cleaning_max_power_ratio=cleaning_max_power_ratio,
@@ -400,18 +489,28 @@ class LightCurve:
                 test_mag = test_mag - total_signal
             else:
                 break
+        
 
         #        detrend raw lightcurve
 
-        self.trend, self.detrended_dt, self.detrended_mag = detrend(self.DT, self.MAG, half_window=half_window,
+        self.trend, self.detrended_dt, self.detrended_mag, self.trend_type = detrend(self.DT, self.MAG, half_window=half_window,
                                                                     poly_deg=poly_deg,
                                                                     limit_to_single_winow=limit_to_single_winow,
                                                                     single_window_poly_deg=single_window_poly_deg)
 
+        self.trend, self.detrended_dt, self.detrended_mag, self.trend_periodigram = test_trend(self.trend, self.detrended_dt, self.detrended_mag,self.periods1, self.fake_peaks1, self.harmonic_peaks1, self.trend_type, limit = 0.2,
+                                                                        period_max=period_max, period_min=period_min,
+                                                                        period_step=period_step, fap_limit=0.1,
+                                                                        long_period_peak_ratio=long_period_peak_ratio,
+                                                                        cleaning_max_power_ratio=0.5,
+                                                                        cleaning_alliase_proximity_ratio=cleaning_alliase_proximity_ratio,
+                                                                        pdm_bins=pdm_bins)
+        
+
         #        compute periodogramm for detrended lightcurve
 
         (self.periodogramm2, self.periods2, self.long_period2, self.total_signal2, self.lt_signal2,
-         self.signals2) = periodogram(self.detrended_dt, self.detrended_mag, period_max=period_max,
+         self.signals2,self.low_power_periods2,self.low_power_signals2) = periodogram(self.detrended_dt, self.detrended_mag, period_max=period_max,
                                       period_min=period_min,
                                       period_step=period_step, fap_limit=fap_limit,
                                       long_period_peak_ratio=long_period_peak_ratio,
@@ -419,12 +518,14 @@ class LightCurve:
                                       cleaning_alliase_proximity_ratio=cleaning_alliase_proximity_ratio,
                                       pdm_bins=pdm_bins)
 
+        
+
         self.residuals_test2 = []
 
         test_mag = np.ones_like(self.detrended_mag) * self.detrended_mag - self.total_signal2
         for i in range(200):
             (periodogramm, periods, long_period, total_signal, lt_signal,
-             signals) = periodogram(self.detrended_dt, test_mag, period_max=period_max, period_min=period_min,
+             signals,_,_) = periodogram(self.detrended_dt, test_mag, period_max=period_max, period_min=period_min,
                                     period_step=period_step, fap_limit=fap_limit,
                                     long_period_peak_ratio=long_period_peak_ratio,
                                     cleaning_max_power_ratio=cleaning_max_power_ratio,
@@ -435,7 +536,29 @@ class LightCurve:
                 test_mag = test_mag - total_signal
             else:
                 break
-
+        self.fake_peaks2 = []
+        if len(self.periods2)>0:
+            (self.periods2, self.total_signal2,
+             self.signals2,self.fake_peaks2, self.harmonic_peaks2,self.harmonic_signals2) = FalsePositive(self.detrended_dt, self.detrended_mag, self.periods2,self.signals2, false_limit = 0.2,
+                                      period_max=period_max, period_min=period_min,
+                                      period_step=period_step, fap_limit=fap_limit,
+                                      long_period_peak_ratio=long_period_peak_ratio,
+                                      cleaning_max_power_ratio=cleaning_max_power_ratio,
+                                      cleaning_alliase_proximity_ratio=cleaning_alliase_proximity_ratio,
+                                      pdm_bins=pdm_bins)
+        else:
+            self.harmonic_peaks2=[]
+        
+        
+        self.pdm_per2, self.thetas2, self.pdm_dominant_period2 = full_PDM(self.detrended_dt, self.detrended_mag,self.periods2,self.harmonic_peaks2, period_max=2.0, period_min=0.5, period_step=0.001, pdm_bins = 20)
+        
+        if self.pdm_dominant_period2 is not None:
+            self.pdm_period2 = self.pdm_dominant_period2[1]
+        else:
+            if len(self.periods2) > 0:
+                self.pdm_period2 = self.periods2[0][1] * self.periods2[0][6]
+            else:
+                self.pdm_period2 = None
         #         periodicity classification
 
         self.period = None
@@ -443,26 +566,31 @@ class LightCurve:
 
         if not self.long_period:
             if len(self.periods1) == 0 and len(self.periods2) == 0:
-                self.statistical_class = 1
-                self.physical_class = 'Non Variable'
+                if len(self.fake_peaks1) > 0 or len(self.fake_peaks2) > 0 or (max(self.trend) - min(self.trend)) > np.std(self.detrended_mag):
+                    self.statistical_class = 1.1
+                    self.physical_class = 'Aperiodic variable'
+                else:
+                    self.statistical_class = 1
+                    self.physical_class = 'Non Variable'
+
             elif len(self.periods1) > 0 and len(self.periods2) == 0:
                 self.statistical_class = 3
                 self.physical_class = 'Periodic variable'
-                self.period = self.periods1[0][1] * self.periods1[0][6]
+                self.period = self.periods1[0][1] #* self.periods1[0][6]
                 for period in self.periods1[1:]:
-                    self.additional_periods.append(period[1] * period[6])
+                    self.additional_periods.append(period[1]) #* period[6])
             elif len(self.periods1) > 0 and len(self.periods2) > 0:
                 self.statistical_class = 5
                 self.physical_class = 'Periodic variable'
-                self.period = self.periods2[0][1] * self.periods2[0][6]
+                self.period = self.periods2[0][1] #* self.periods2[0][6]
                 for period in self.periods2[1:]:
-                    self.additional_periods.append(period[1] * period[6])
+                    self.additional_periods.append(period[1]) #* period[6])
             elif len(self.periods1) == 0 and len(self.periods2) > 0:
                 self.statistical_class = 7
                 self.physical_class = 'Periodic variable'
-                self.period = self.periods2[0][1] * self.periods2[0][6]
+                self.period = self.periods2[0][1] #* self.periods2[0][6]
                 for period in self.periods2[1:]:
-                    self.additional_periods.append(period[1] * period[6])
+                    self.additional_periods.append(period[1]) #* period[6])
 
         else:
             if len(self.periods1) == 0 and len(self.periods2) == 0:
@@ -471,26 +599,33 @@ class LightCurve:
             elif len(self.periods1) > 0 and len(self.periods2) == 0:
                 self.statistical_class = 4
                 self.physical_class = 'Periodic variable with possible long-term periodicity'
-                self.period = self.periods1[0][1] * self.periods1[0][6]
+                self.period = self.periods1[0][1] #* self.periods1[0][6]
                 for period in self.periods1[1:]:
-                    self.additional_periods.append(period[1] * period[6])
+                    self.additional_periods.append(period[1]) #* period[6])
             elif len(self.periods1) > 0 and len(self.periods2) > 0:
                 self.statistical_class = 6
                 self.physical_class = 'Periodic variable with possible long-term periodicity'
-                self.period = self.periods2[0][1] * self.periods2[0][6]
+                self.period = self.periods2[0][1] #* self.periods2[0][6]
                 for period in self.periods2[1:]:
-                    self.additional_periods.append(period[1] * period[6])
+                    self.additional_periods.append(period[1]) #* period[6])
             elif len(self.periods1) == 0 and len(self.periods2) > 0:
-                self.statistical_class = 8
-                self.physical_class = 'Periodic variable with possible long-term periodicity'
-                self.period = self.periods2[0][1] * self.periods2[0][6]
+                if self.periods2[0][1]/(max(self.detrended_dt) -min(self.detrended_dt) ) > 0.4 :
+                    self.statistical_class = 8.2
+                    self.physical_class = 'Aperiodic variable with possible long-term periodicity'
+                    self.fake_peaks2 = np.append(self.fake_peaks2, np.array([self.periods2[0]]), axis=0)
+                    self.periods2.pop(0)
+                    self.total_signal2 = self.total_signal2 - self.signals2[0]
+                    #self.period = None
+                else:
+                    self.statistical_class = 8.1
+                    self.physical_class = 'Periodic variable with possible long-term periodicity'
+                    self.period = self.periods2[0][1] #* self.periods2[0][6]
                 for period in self.periods2[1:]:
-                    self.additional_periods.append(period[1] * period[6])
+                    self.additional_periods.append(period[1]) #* period[6])
 
         if len(self.additional_periods) == 0:
             self.additional_periods = [None]
 
-	# Half Lightcurve test	
 	
         self.comments = ['Statistical class: {0}'.format(self.statistical_class)]
         self.comments.append('RAW LC:')
@@ -504,6 +639,11 @@ class LightCurve:
             if period[6] > 1:
                 xx += ' Multiplied by {0} for minimum PDM.'.format(period[6])
             self.comments.append(xx)
+        self.comments.append('    PDM dominant peak at {0} s.'.format(self.pdm_period1))
+        if len(self.harmonic_peaks1) > 0:
+            self.comments.append('    Harmonics peaks: [{0}]'.format(','.join(str(ff[1]) for ff in self.harmonic_peaks1)))
+        if len(self.low_power_periods1) > 0:
+            self.comments.append('    Low Power peaks : [{0}]'.format(','.join(str(ff[1]) for ff in self.low_power_periods1)))
         self.comments.append('DT LC:')
         self.comments.append('    Trend: {0}'.format(self.long_period2))
         if self.long_period2:
@@ -515,8 +655,56 @@ class LightCurve:
             if period[6] > 1:
                 xx += ' Multiplied by {0} for minimum PDM.'.format(period[6])
             self.comments.append(xx)
+        self.comments.append('    PDM dominant peak at {0} s.'.format(self.pdm_period2))
+        if len(self.harmonic_peaks2) > 0:
+            self.comments.append('    Harmonics peaks: [{0}]'.format(','.join(str(ff[1]) for ff in self.harmonic_peaks2)))
+        if len(self.low_power_periods2) > 0:
+            self.comments.append('    Low Power peaks : [{0}]'.format(','.join(str(ff[1]) for ff in self.low_power_periods2)))
+        
+        self.all_periods = []
+        self.dom_periods = []
+        for peri in self.periods2:
+            self.all_periods.append(peri)
+            self.dom_periods.append(peri)
+        for peri in self.harmonic_peaks2:
+            self.all_periods.append(peri)
+            self.dom_periods.append(peri)
+        for peri in self.low_power_periods2:
+            self.all_periods.append(peri)
+        
 
-        self.model = build_model(self.statistical_class, self.MAG, self.trend, self.total_signal1, self.total_signal2)
+        self.harmonic_class = []
+        ratios = [2,3,4,5,6,7,8,3/2,5/2,7/2,Fraction(4,3),Fraction(5,3),Fraction(7,3),Fraction(8,3)]
+        if len(self.harmonic_peaks2) > 0:
+            for peridx in range(len(self.periods2)):
+                for harm in self.harmonic_peaks2:
+                    for ratio in ratios:
+                        if np.abs(max(self.periods2[peridx][1],harm[1])/min(self.periods2[peridx][1],harm[1]) - float(ratio)) < cleaning_alliase_proximity_ratio+(float(ratio)-1)*0.03:
+                            self.harmonic_class.append([harm[1],self.periods2[peridx][1],Fraction(ratio),peridx])
+
+        self.comments_2 = ['Present Periods[s]','Periodicity class: {0}'.format(self.physical_class)]
+        if len(self.all_periods) > 0:
+            self.comments_2.append('[Power,Period[s],Amplitude,Phase[rad]] :\n{0}'.format('\n'.join(f'[{ff[0]}, {ff[1]}, {ff[2]}, {ff[3]}]' for ff in sorted(self.all_periods, key=lambda x :-x[0]))))
+            self.comments_2.append('Maximu Power Period[s]: {0}'.format(sorted(self.all_periods, key=lambda x :-x[0])[0][1]))
+            self.comments_2.append('PDM minimum  Period[s] : {0}'.format(self.pdm_period2))
+            self.comments_2.append('Longest Period[s] :{0}'.format(sorted(self.dom_periods, key=lambda x :-x[1])[0][1]))
+            self.comments_2.append('Harmonics to max power :')
+            if len(self.harmonic_peaks2) > 0:
+                self.comments_2.append('[Period[s],max/min ratio]\n{0}'.format('\n'.join((f'{ff[0]} , {ff[2]}') for ff in self.harmonic_class if int(ff[3])==0)))
+            else:
+                self.comments_2.append('None'),
+
+            if len(self.additional_periods) > 0:
+                self.comments_2.append('Additional periods [s]: {0}'.format(','.join([str(ff) for ff in self.additional_periods])))
+                self.comments_2.append('Harmonics to additional')
+                self.comments_2.append('[Harmonic[s],Period[s],max/min ratio]\n{0}'.format(','.join((f'{ff[0]} , {ff[1]} -> {ff[2]}') for ff in self.harmonic_class if int(ff[3])!=0)))
+
+            if len(self.low_power_periods2) > 0:
+                self.comments_2.append('Low Power Periods [s]: {0}'.format(','.join([str(ff[1]) for ff in self.low_power_periods2])))
+        
+        else:
+            self.comments_2.append('None')
+        self.model, self.model_plot = build_model(self.MAG, self.trend, self.signals2, self.harmonic_signals2, self.low_power_signals2)
         #         export or show
 
         if export:
