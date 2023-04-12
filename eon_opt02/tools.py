@@ -526,7 +526,7 @@ def FalsePositive(jd,mag, peaks, signals, false_limit = 0.2,
     clean_mag = np.ones_like(mag) * mag - tot_sig
     
     #compute periods on the "cleaned" list
-    (_, periods, _, _, _,_,_,_) = periodogram(jd, clean_mag, period_max=period_max, period_min=period_min,
+    (_, periods, _, _, _,_) = periodogram(jd, clean_mag, period_max=period_max, period_min=period_min,
                                       period_step=period_step, fap_limit=fap_limit,
                                       long_period_peak_ratio=long_period_peak_ratio,
                                       cleaning_max_power_ratio=cleaning_max_power_ratio,
