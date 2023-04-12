@@ -170,21 +170,26 @@ def test_trend(trend, jd, mag, peaks, fake_peaks, harmonic_peaks, trend_type,lim
     else:
         if len(fake_peaks) > 0 and len(peaks) < 1:
             hw = len(jd)
+            hw_min = 0
             for fp in fake_peaks:
                 if abs(fp[1]/(max(jd) - min(jd)) - 1) < limit:
                     step = np.median(jd[1:]-jd[:-1])
                     num_steps_in_peak = int(fp[1]/step)
-                    window = int(num_steps_in_peak/7)
+                    window = int(num_steps_in_peak/21)
                     hw = int((window - 1)/2 if window%2 != 0 else window/2)
+                    if hw < hw_min:
+                        hw_min = hw
 
-                    mag = mag + trend
-                    trend_out = moving_poly(jd, mag, hw, 1)
-                    jd_out = jd[hw + 1: - hw + 1]
-                    mag_out = mag[hw + 1: - hw + 1]  - trend_out
-                else:
-                    trend_out = trend
-                    jd_out = jd
-                    mag_out = mag
+            if hw_min != 0:
+                mag = mag + trend
+                trend_out = moving_poly(jd, mag, hw_min, 1)
+                jd_out = jd[hw_min + 1: - hw_min + 1]
+                mag_out = mag[hw_min + 1: - hw_min + 1]  - trend_out
+            else:
+                trend_out = trend
+                jd_out = jd
+                mag_out = mag
+
         else:
             trend_out = trend
             jd_out = jd
@@ -206,7 +211,7 @@ def periodogram_trend(jd, mag,
     ######################################################################################################
 
     periods = np.arange(
-        np.log10(max(period_min,2*np.median(jd[1:] - jd[:-1]))),
+        np.log10(max(period_min,2.1*np.median(jd[1:] - jd[:-1]))),
         np.log10(period_max * (np.max(jd) - np.min(jd))),
         period_step)
 
@@ -314,15 +319,15 @@ def periodogram(jd, mag,
 
             peaks.append([pmax, 1./fmax, amax, phase, off, long_period])
 
-    low_power_peaks = []
-    #         cleaning weak peaks
-    if len(peaks) > 0:
-        power = np.array([peak[0] for peak in peaks], dtype = float)
-        for pow_idx in range(len(power)):
-            if (power[pow_idx]/np.max(power)) < cleaning_max_power_ratio:
-                low_power_peaks.append(peaks[pow_idx])
-        peaks = np.delete(peaks,  np.where(power/np.max(power) < cleaning_max_power_ratio)[0], axis=0)
-
+        '''low_power_peaks = []
+        #         cleaning weak peaks
+        if len(peaks) > 0:
+            power = np.array([peak[0] for peak in peaks], dtype = float)
+            for pow_idx in range(len(power)):
+                if (power[pow_idx]/np.max(power)) < cleaning_max_power_ratio:
+                    low_power_peaks.append(peaks[pow_idx])
+            peaks = np.delete(peaks,  np.where(power/np.max(power) < cleaning_max_power_ratio)[0], axis=0)
+        '''
     #     not yet    cleaning harmonics
     if len(peaks) > 1:
 
@@ -365,9 +370,9 @@ def periodogram(jd, mag,
 
     #         models ans PDM
     periods, long_period, total_signal, lt_signal, signals  = model_signals(jd, mag, peaks)
-    low_power_periods, _, low_power_total_signal,_,low_power_signals = model_signals(jd,mag,low_power_peaks)
-    if len(low_power_periods)>0:
-        total_signal = total_signal+np.sum(low_power_signals,0)
+    #low_power_periods, _, low_power_total_signal,_,low_power_signals = model_signals(jd,mag,low_power_peaks)
+    #if len(low_power_periods)>0:
+    #    total_signal = total_signal+np.sum(low_power_signals,0)
     
 
     #pdm_peaks = []
@@ -390,11 +395,11 @@ def periodogram(jd, mag,
         #pdm_peak_thetas.append(thetas)
 
 
-    return np.array(periodogram), np.array(periods), long_period, np.array(total_signal), np.array(lt_signal), np.array(signals), np.array(low_power_periods),np.array(low_power_signals)
+    return np.array(periodogram), np.array(periods), long_period, np.array(total_signal), np.array(lt_signal), np.array(signals) #, np.array(low_power_periods),np.array(low_power_signals) #, np.array(harmonic_periods), np.array(pdm_peaks), np.array(pdm_peak_thetas),np.array(harmonic_signals)
 
 def full_PDM(jd, mag, dominant_periods,harmonic_periods, period_max=2.0, period_min=0.5, period_step=0.001, pdm_bins = 20 ):
     periods = np.arange(
-        np.log10(max(period_min, 2*np.median(jd[1:] - jd[:-1]))),
+        np.log10(max(period_min, 2.1*np.median(jd[1:] - jd[:-1]))),
         np.log10(period_max * (np.max(jd) - np.min(jd))),
         period_step)
 
@@ -553,6 +558,7 @@ def FalsePositive(jd,mag, peaks, signals, false_limit = 0.2,
                 false_pos_index.append(peak_idx)'''
 
 
+
     peaks_out = np.delete(peaks, false_pos_index, axis=0)
     fake_peaks = peaks[false_pos_index]
     
@@ -596,15 +602,23 @@ def FalsePositive(jd,mag, peaks, signals, false_limit = 0.2,
 
             if not restart:
                 cleaning = False
-    # delete false positives
+
+    low_power_peaks = []
+    #         cleaning weak peaks
+    if len(peaks) > 0:
+        power = np.array([peak[0] for peak in peaks], dtype = float)
+        for pow_idx in range(len(power)):
+            if (power[pow_idx]/np.max(power)) < cleaning_max_power_ratio:
+                low_power_peaks.append(peaks[pow_idx])
+        peaks = np.delete(peaks,  np.where(power/np.max(power) < cleaning_max_power_ratio)[0], axis=0)
 
     # create new models 
     periods_out, _, total_signal_out, _, signals_out = model_signals(jd,mag, peaks_out)
-    
     h_periods_out, _,h_total_signal,_,h_signals_out = model_signals(jd,mag,harmonic_peaks) 
-    total_signal_out = total_signal_out+np.sum(h_signals_out,axis=0)
+    low_power_out,_,low_total_signal,_,low_signals_out = model_signals(jd,mag,low_power_peaks)
+    total_signal_out = total_signal_out+np.sum(h_signals_out,axis=0)+np.sum(low_signals_out, axis=0)
 
-    return periods_out, total_signal_out, signals_out, fake_peaks, h_periods_out ,h_signals_out,
+    return periods_out, total_signal_out, signals_out, fake_peaks, h_periods_out ,h_signals_out,low_power_out, low_signals_out
 
 
 def comp_tr_lp(x,y, std_limit):
