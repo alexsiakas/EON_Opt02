@@ -678,8 +678,8 @@ class LightCurve:
         for peri in self.harmonic_peaks2:
             self.all_periods.append(peri)
             self.dom_periods.append(peri)
-        for peri in self.low_power_periods2:
-            self.all_periods.append(peri)
+        #for peri in self.low_power_periods2:
+        #    self.all_periods.append(peri)
         
 
         self.harmonic_class = []
