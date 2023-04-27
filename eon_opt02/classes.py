@@ -79,6 +79,10 @@ class LightCurve:
         (self.observatory, self.telescope, self.sensor, self.filter, self.latitude,
          self.longitude, self.elevation) = get_sensor(self.OBSCODE)
 
+        if not hasattr(self,'TRACKLET'):
+            self.TRACKLET = self.DATETIME[0].strftime("%Y%m%d%H%M")
+
+
         #         Analyse
 
         if analyse:
@@ -319,6 +323,7 @@ class LightCurve:
             'Reduction data procedure: {0}'.format(None),
             'Uncertainty: {0}'.format('From TDM'),
             'Magnitude type: {0}'.format('From TDM'),
+            'AVG_PHOTOMETRIC_RMS: {0}'.format(self.AVG_PHOTOMETRIC_RMS),
             'Angular measurements: {0}'.format('From TDM'),
             'First Epoch MJDutc: {0}'.format(self.JD[0] - 2400000.5),
             'First Epoch ISOutc: {0}'.format(self.UTC[0]),
@@ -338,10 +343,10 @@ class LightCurve:
 
         if self.ANGLE_TYPE == 'RADEC':
             csv.append('OBSid,TimeSinceFirstEpoch[sec],FOVra[deg],FOVdec[deg],SigPlate[deg],'
-                       'Mag,SigMag,PhaseAngle,Distance,STMag,Model')
+                       'Mag,PhaseAngle,Distance,STMag,Model')
         else:
             csv.append('OBSid,TimeSinceFirstEpoch[sec],FOVaz[deg],FOVel[deg],SigPlate[deg],'
-                       'Mag,SigMag,PhaseAngle,Distance,STMag,Model')
+                       'Mag,PhaseAngle,Distance,STMag,Model')
 
         for entry in range(len(self.JD)):
             csv.append(','.join([
@@ -351,7 +356,7 @@ class LightCurve:
                 str(self.ANGLE_2[entry]),
                 str(self.PLATE_SOLUTION_RMS[entry]),
                 str(self.RAW_MAG[entry]),
-                str(self.PHOTOMETRIC_RMS[entry]),
+                #str(self.PHOTOMETRIC_RMS[entry]),
                 str(self.phase[entry]),
                 str(self.distance[entry]),
                 str(self.stmag[entry]),

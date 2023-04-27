@@ -105,8 +105,12 @@ def detrend(times, mag, half_window=10, poly_deg=1, limit_to_single_winow=5, sin
         else:
 
             trend = moving_poly(times, mag, half_window, poly_deg)
-            detrended_times = times[half_window + 1: - half_window + 1]
-            detrended_mag = mag[half_window + 1: - half_window + 1]  - trend
+            if half_window==1:
+                detrended_times = times[half_window: -half_window]
+                detrended_mag = mag[half_window: -half_window]  - trend    
+            else:
+                detrended_times = times[half_window + 1: - half_window + 1]
+                detrended_mag = mag[half_window + 1: - half_window + 1]  - trend
             trend_type = 'moving_poly'
 
     return trend, detrended_times, detrended_mag, trend_type
