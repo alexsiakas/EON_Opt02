@@ -20,7 +20,7 @@ class LightCurve:
         tdm = open(file_path).read()
 
         #         Load meta-data, they can be acessed by directly from LightCurve object
-        #         e.g. lightgurve.OBSCODE
+        #         e.g. lightgurve.SENSORid
 
         for line in tdm.split('DATA_START')[0].split('\n'):
             line = line.replace('COMMENT', '')
@@ -77,7 +77,7 @@ class LightCurve:
         #         Load sensor data
 
         (self.observatory, self.telescope, self.sensor, self.filter, self.latitude,
-         self.longitude, self.elevation) = get_sensor(self.OBSCODE)
+         self.longitude, self.elevation) = get_sensor(self.SENSORID)
 
         if not hasattr(self,'TRACKLET'):
             self.TRACKLET = self.DATETIME[0].strftime("%Y%m%d%H%M")

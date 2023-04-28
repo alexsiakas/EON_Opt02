@@ -95,7 +95,7 @@ def detrend(times, mag, half_window=10, poly_deg=1, limit_to_single_winow=5, sin
 
         half_window = int(half_window / np.median(times[1:] - times[:-1]))
 
-        if len(times) < limit_to_single_winow * half_window:
+        if len(times) < limit_to_single_winow * half_window or half_window<1:
 
             trend = np.poly1d(np.polyfit(times , mag, single_window_poly_deg))(times)
             detrended_times = times
