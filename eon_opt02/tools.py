@@ -56,7 +56,7 @@ def get_sensor(OBSCODE):
     #     longitude (deg)
     #     elevation (m)
     if str(OBSCODE) == 'AUTH1':
-        observatory = 'Noesis'
+        observatory = 'AUTH1'
         telescope = 'Rasa8'
         sensor = 'QHY268'
         filter = 'none'
@@ -105,7 +105,8 @@ def detrend(times, mag, half_window=10, poly_deg=1, limit_to_single_winow=5, sin
             trend_type = 'polynomial'
 
         else:
-
+            if len(times[half_window + 1: - half_window + 1])/len(times) < 0.8:
+                half_window = int(0.1*len(times))
             trend = moving_poly(times, mag, half_window, poly_deg)
             if half_window==1:
                 detrended_times = times[half_window: -half_window]
@@ -176,7 +177,7 @@ def test_trend(trend, jd, mag, peaks, fake_peaks, harmonic_peaks, trend_type,lim
     else:
         if len(fake_peaks) > 0 and len(peaks) < 1:
             hw = len(jd)
-            hw_min = 0
+            hw_min = 10
             for fp in fake_peaks:
                 if abs(fp[1]/(max(jd) - min(jd)) - 1) < 0.5:
                     step = np.median(jd[1:]-jd[:-1])
@@ -191,6 +192,57 @@ def test_trend(trend, jd, mag, peaks, fake_peaks, harmonic_peaks, trend_type,lim
                 trend_out = moving_poly(jd, mag, hw_min, 1)
                 jd_out = jd[hw_min + 1: - hw_min + 1]
                 mag_out = mag[hw_min + 1: - hw_min + 1]  - trend_out
+            else:
+                trend_out = trend
+                jd_out = jd
+                mag_out = mag
+
+        elif len(peaks) > 0:
+            (trend_periodogram, periods, Long_p, _, _,_) = periodogram_trend(jd, trend, period_max=period_max, period_min=period_min,
+                                      period_step=period_step, fap_limit=fap_limit,
+                                      long_period_peak_ratio=long_period_peak_ratio,
+                                      cleaning_max_power_ratio=cleaning_max_power_ratio,
+                                      cleaning_alliase_proximity_ratio=cleaning_alliase_proximity_ratio,
+                                      pdm_bins=pdm_bins)
+        
+            # test if any of the peaks found in trend is real
+            #print(Long_p)
+            #print('test periodogram periods')
+            #print(periods)
+            #print('And Peaks')
+            if len(peaks) > 0 and len(harmonic_peaks) > 0:
+                real_peaks = np.concatenate((peaks, harmonic_peaks))
+            elif len(peaks) > 0:
+                real_peaks = peaks
+            else:
+                real_peaks = harmonic_peaks
+            
+            #print(real_peaks)
+            
+            if len(periods)>0:
+                true_period_in_trend = []
+                trend_out = trend
+                jd_out = jd
+                mag_out = mag
+                for period_idx in range(len(periods)):
+                    for peak_idx in range(len(real_peaks)):
+                        if abs(real_peaks[peak_idx][1] - periods[period_idx][1])/ real_peaks[peak_idx][1] < limit:
+                            print('trend 2nd order')
+                            mag_out = mag + trend
+                            trend_out = np.poly1d(np.polyfit(jd , mag_out, 2))(jd)
+                            mag_out = mag_out - trend_out
+                            jd_out = jd
+                            break
+                    else:
+                        continue
+                    break
+
+                '''periods = np.array(periods)
+                true_periods = periods[true_period_in_trend]
+                _,_,_,_,trend_signals = model_signals(jd,trend,true_periods)
+                trend_out = trend - np.sum(trend_signals,0)
+                jd_out = jd
+                mag_out = mag + np.sum(trend_signals,0)'''
             else:
                 trend_out = trend
                 jd_out = jd
@@ -291,6 +343,7 @@ def periodogram(jd, mag,
     periodogram = [clp.freq, clp.power]
     peaks = []
     signals = []
+    fake_peaks = []
 
     if np.sum(clp.power > plevel):
 
@@ -316,12 +369,21 @@ def periodogram(jd, mag,
             phase = np.arctan2(clp._a[ifmax], clp._b[ifmax]) / (2.*np.pi)
             off = clp._off[ifmax] + clp._Y
 
+            
+
             if section[0] == 0 and power[0] > long_period_peak_ratio * np.max(power):
                 long_period = True
             elif 1./fmax > max(jd) - min(jd):
                 long_period = True
             else:
                 long_period = False
+                T1 = 1./clp.freq[0]
+                T2 = 1./clp.freq[-1]
+                #print('Peak char : ')
+                #print(T1,T2,1/fmax,np.abs(T1-T2)/(2*(1./fmax)))
+                if np.abs(T1-T2)/(2*(1./fmax)) > 0.8:
+                    fake_peaks.append([pmax, 1./fmax, amax, phase, off, long_period])
+                    continue
 
             peaks.append([pmax, 1./fmax, amax, phase, off, long_period])
 
@@ -401,7 +463,7 @@ def periodogram(jd, mag,
         #pdm_peak_thetas.append(thetas)
 
 
-    return np.array(periodogram), np.array(periods), long_period, np.array(total_signal), np.array(lt_signal), np.array(signals) #, np.array(low_power_periods),np.array(low_power_signals) #, np.array(harmonic_periods), np.array(pdm_peaks), np.array(pdm_peak_thetas),np.array(harmonic_signals)
+    return np.array(periodogram), np.array(periods), long_period, np.array(total_signal), np.array(lt_signal), np.array(signals), np.array(fake_peaks) #, np.array(low_power_periods),np.array(low_power_signals) #, np.array(harmonic_periods), np.array(pdm_peaks), np.array(pdm_peak_thetas),np.array(harmonic_signals)
 
 def full_PDM(jd, mag, dominant_periods,harmonic_periods, period_min=0.5, period_step=0.001, pdm_bins = 20 ):
     periods = np.arange(
@@ -525,14 +587,14 @@ def FalsePositive(jd,mag, peaks, signals, false_limit = 0.2,
     ###########################################################################
     
     # This is the normal procedure
-    tot_sig = np.sum(signals, 0)
+    #tot_sig = np.sum(signals, 0)
     #harm_tot_sig = np.sum(harmonic_signals,0)
     #tot_sig = tot_sig-harm_tot_sig
     # remove detected signals from the list
-    clean_mag = np.ones_like(mag) * mag - tot_sig
+    #clean_mag = np.ones_like(mag) * mag - tot_sig
     
     #compute periods on the "cleaned" list
-    (_, periods, _, _, _,_) = periodogram(jd, clean_mag, period_max=period_max, period_min=period_min,
+    '''(_, periods, _, _, _,_) = periodogram(jd, clean_mag, period_max=period_max, period_min=period_min,
                                       period_step=period_step, fap_limit=fap_limit,
                                       long_period_peak_ratio=long_period_peak_ratio,
                                       cleaning_max_power_ratio=cleaning_max_power_ratio,
@@ -546,7 +608,7 @@ def FalsePositive(jd,mag, peaks, signals, false_limit = 0.2,
             for period_idx in range(len(periods)):
                 if np.abs(peaks[peak_idx][1] - periods[period_idx][1])/peaks[peak_idx][1] < false_limit: # |T_old - T_new|/T_old < limit
                     false_pos_index.append(peak_idx)
-
+'''
     # altervative checking one peack at a time
     '''false_pos_index = []
     h_false_pos_index = []
@@ -565,10 +627,10 @@ def FalsePositive(jd,mag, peaks, signals, false_limit = 0.2,
 
 
 
-    peaks_out = np.delete(peaks, false_pos_index, axis=0)
-    fake_peaks = peaks[false_pos_index]
+    #peaks_out = np.delete(peaks, false_pos_index, axis=0)
+    #fake_peaks = peaks[false_pos_index]
     
-    
+    peaks_out = peaks
     harmonic_peaks = []
 
     if len(peaks_out) > 1:
@@ -624,7 +686,7 @@ def FalsePositive(jd,mag, peaks, signals, false_limit = 0.2,
     low_power_out,_,low_total_signal,_,low_signals_out = model_signals(jd,mag,low_power_peaks)
     total_signal_out = total_signal_out+np.sum(h_signals_out,axis=0)+np.sum(low_signals_out, axis=0)
 
-    return periods_out, total_signal_out, signals_out, fake_peaks, h_periods_out ,h_signals_out,low_power_out, low_signals_out
+    return periods_out, total_signal_out, signals_out, h_periods_out ,h_signals_out,low_power_out, low_signals_out
 
 
 def comp_tr_lp(x,y, std_limit):

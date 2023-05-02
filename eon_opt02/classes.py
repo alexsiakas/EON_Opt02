@@ -82,7 +82,7 @@ class LightCurve:
             except:
                 (self.observatory, self.telescope, self.SENSORID, self.filter, self.LATITUDE,
                 self.LONGITUDE, self.ALTITUDE) = get_sensor(self.SENSORID)  
-                self.PARTICIPANT_1 = self.SENSORID  
+                self.PARTICIPANT_1 = self.observatory  
                 self.MODE = 'Sequential '
 
         if not hasattr(self,'telescope'):
@@ -445,7 +445,7 @@ class LightCurve:
         try:
             self.distance, self.phase = get_range_phase(
                 self.FIRSTLINE, self.SECONDLINE, self.JD,
-                self.LATITUDE, self.LONGITUDE, self.elevation)
+                self.LATITUDE, self.LONGITUDE, self.ALTITUDE)
             self.stmag = self.MAG - 5 * np.log10(np.pi/(np.sin(self.phase)+(np.pi-self.phase)*np.cos(self.phase)))
             self.stmag = self.stmag + 5 - 5 * np.log10(self.distance/6378)
             self.RAW_MAG, self.MAG = self.MAG, self.stmag
@@ -459,7 +459,7 @@ class LightCurve:
         #         periodogramm
 
         (self.periodogramm1, self.periods1, self.long_period, self.total_signal1, self.lt_signal1,
-         self.signals1) = periodogram(self.DT, self.MAG, period_max=period_max, period_min=period_min,
+         self.signals1,self.fake_peaks1) = periodogram(self.DT, self.MAG, period_max=period_max, period_min=period_min,
                                       period_step=period_step, fap_limit=fap_limit,
                                       long_period_peak_ratio=long_period_peak_ratio,
                                       cleaning_max_power_ratio=cleaning_max_power_ratio,
@@ -467,10 +467,10 @@ class LightCurve:
                                       pdm_bins=pdm_bins)
 
         #         Check for false positives
-        self.fake_peaks1 = []
+        #self.fake_peaks1 = []
         if len(self.periods1) > 0:
             (self.periods1, self.total_signal1, 
-            self.signals1,self.fake_peaks1, self.harmonic_peaks1,self.harmonic_signals1
+            self.signals1, self.harmonic_peaks1,self.harmonic_signals1
             ,self.low_power_periods1, self.low_power_signals1) = FalsePositive(self.DT, self.MAG, self.periods1, self.signals1,false_limit = 0.2,
                                       period_max=period_max, period_min=period_min,
                                       period_step=period_step, fap_limit=fap_limit,
@@ -499,7 +499,7 @@ class LightCurve:
         test_mag = np.ones_like(self.MAG) * self.MAG - self.total_signal1
         for i in range(200):
             (periodogramm, periods, long_period, total_signal, lt_signal,
-             signals) = periodogram(self.DT, test_mag, period_max=period_max, period_min=period_min,
+             signals,_) = periodogram(self.DT, test_mag, period_max=period_max, period_min=period_min,
                                     period_step=period_step, fap_limit=fap_limit,
                                     long_period_peak_ratio=long_period_peak_ratio,
                                     cleaning_max_power_ratio=cleaning_max_power_ratio,
@@ -531,7 +531,7 @@ class LightCurve:
         #        compute periodogramm for detrended lightcurve
 
         (self.periodogramm2, self.periods2, self.long_period2, self.total_signal2, self.lt_signal2,
-         self.signals2) = periodogram(self.detrended_dt, self.detrended_mag, period_max=period_max,
+         self.signals2, self.fake_peaks2) = periodogram(self.detrended_dt, self.detrended_mag, period_max=period_max,
                                       period_min=period_min,
                                       period_step=period_step, fap_limit=fap_limit,
                                       long_period_peak_ratio=long_period_peak_ratio,
@@ -546,7 +546,7 @@ class LightCurve:
         test_mag = np.ones_like(self.detrended_mag) * self.detrended_mag - self.total_signal2
         for i in range(200):
             (periodogramm, periods, long_period, total_signal, lt_signal,
-             signals) = periodogram(self.detrended_dt, test_mag, period_max=period_max, period_min=period_min,
+             signals,_) = periodogram(self.detrended_dt, test_mag, period_max=period_max, period_min=period_min,
                                     period_step=period_step, fap_limit=fap_limit,
                                     long_period_peak_ratio=long_period_peak_ratio,
                                     cleaning_max_power_ratio=cleaning_max_power_ratio,
@@ -558,10 +558,10 @@ class LightCurve:
             else:
                 break
         
-        self.fake_peaks2 = []
+        #self.fake_peaks2 = []
         if len(self.periods2)>0:
             (self.periods2, self.total_signal2,
-             self.signals2,self.fake_peaks2, self.harmonic_peaks2,self.harmonic_signals2,
+             self.signals2, self.harmonic_peaks2,self.harmonic_signals2,
              self.low_power_periods2, self.low_power_signals2) = FalsePositive(self.detrended_dt, self.detrended_mag, self.periods2,self.signals2, false_limit = 0.2,
                                       period_max=period_max, period_min=period_min,
                                       period_step=period_step, fap_limit=fap_limit,
@@ -581,10 +581,10 @@ class LightCurve:
         if self.pdm_dominant_period2 is not None:
             self.pdm_period2 = self.pdm_dominant_period2[1]
         else:
-            if len(self.periods2) > 0:
+            '''if len(self.periods2) > 0:
                 self.pdm_period2 = self.periods2[0][1] * self.periods2[0][6]
-            else:
-                self.pdm_period2 = None
+            else:'''
+            self.pdm_period2 = None
         #         periodicity classification
 
         self.period = None
