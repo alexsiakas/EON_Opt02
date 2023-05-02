@@ -82,7 +82,7 @@ def moving_poly(x,y,w,n):
     return np.array(mp)
 
 
-def detrend(times, mag, half_window=10, poly_deg=1, limit_to_single_winow=5, single_window_poly_deg=2):
+def detrend(times, mag, half_window=10, poly_deg=1, limit_to_single_winow=5, single_window_poly_deg=3):
 
     if np.max(times) - np.min(times) < limit_to_single_winow * half_window:
 
@@ -94,8 +94,10 @@ def detrend(times, mag, half_window=10, poly_deg=1, limit_to_single_winow=5, sin
     else:
 
         half_window = int(half_window / np.median(times[1:] - times[:-1]))
+        if half_window < 1:
+            half_window = 1
 
-        if len(times) < limit_to_single_winow * half_window or half_window<1:
+        if len(times) < limit_to_single_winow * half_window :
 
             trend = np.poly1d(np.polyfit(times , mag, single_window_poly_deg))(times)
             detrended_times = times
@@ -176,7 +178,7 @@ def test_trend(trend, jd, mag, peaks, fake_peaks, harmonic_peaks, trend_type,lim
             hw = len(jd)
             hw_min = 0
             for fp in fake_peaks:
-                if abs(fp[1]/(max(jd) - min(jd)) - 1) < limit:
+                if abs(fp[1]/(max(jd) - min(jd)) - 1) < 0.5:
                     step = np.median(jd[1:]-jd[:-1])
                     num_steps_in_peak = int(fp[1]/step)
                     window = int(num_steps_in_peak/21)
@@ -401,10 +403,10 @@ def periodogram(jd, mag,
 
     return np.array(periodogram), np.array(periods), long_period, np.array(total_signal), np.array(lt_signal), np.array(signals) #, np.array(low_power_periods),np.array(low_power_signals) #, np.array(harmonic_periods), np.array(pdm_peaks), np.array(pdm_peak_thetas),np.array(harmonic_signals)
 
-def full_PDM(jd, mag, dominant_periods,harmonic_periods, period_max=2.0, period_min=0.5, period_step=0.001, pdm_bins = 20 ):
+def full_PDM(jd, mag, dominant_periods,harmonic_periods, period_min=0.5, period_step=0.001, pdm_bins = 20 ):
     periods = np.arange(
         np.log10(max(period_min, 2.1*np.median(jd[1:] - jd[:-1]))),
-        np.log10(period_max * (np.max(jd) - np.min(jd))),
+        np.log10((np.max(jd) - np.min(jd))),
         period_step)
 
     periods = 10**(periods)

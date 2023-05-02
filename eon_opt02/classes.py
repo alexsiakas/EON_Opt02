@@ -75,9 +75,21 @@ class LightCurve:
         del tdm, data
 
         #         Load sensor data
+        if not hasattr(self,'LATITUDE') or not hasattr(self,'LONGITUDE') or not hasattr(self,'ALTITUDE'):
+            try:
+                (self.observatory, self.telescope, self.SENSORID, self.filter, self.LATITUDE,
+                self.LONGITUDE, self.ALTITUDE) = get_sensor(self.PARTICIPANT_1)
+            except:
+                (self.observatory, self.telescope, self.SENSORID, self.filter, self.LATITUDE,
+                self.LONGITUDE, self.ALTITUDE) = get_sensor(self.SENSORID)  
+                self.PARTICIPANT_1 = self.SENSORID  
+                self.MODE = 'Sequential '
 
-        (self.observatory, self.telescope, self.sensor, self.filter, self.latitude,
-         self.longitude, self.elevation) = get_sensor(self.SENSORID)
+        if not hasattr(self,'telescope'):
+            self.telescope = 'No info'
+
+        if not hasattr(self,'filter'):
+            self.filter = 'No info'
 
         if not hasattr(self,'TRACKLET'):
             self.TRACKLET = self.DATETIME[0].strftime("%Y%m%d%H%M")
@@ -155,7 +167,7 @@ class LightCurve:
             phase *= self.pdm_dominant_period1[1]
         else:
             phase = self.DT
-            cleaned_mag = self.MAG - self.lt_signal1
+            cleaned_mag = self.MAG - np.median(self.MAG)#self.lt_signal1
             cleaned_signal = self.lt_signal1 * 0
 
         phase, cleaned_mag, cleaned_signal = np.swapaxes(
@@ -209,7 +221,7 @@ class LightCurve:
             phase *= self.periods2[0][1]
         else:
             phase = self.detrended_dt
-            cleaned_mag = self.detrended_mag - self.lt_signal2
+            cleaned_mag = self.detrended_mag - np.median(self.detrended_mag)#- self.lt_signal2
             cleaned_signal = self.lt_signal2 * 0
 
         phase, cleaned_mag, cleaned_signal = np.swapaxes(
@@ -314,13 +326,13 @@ class LightCurve:
 
         csv = [
             '-----------------------START METADATA-------------------------',
-            self.observatory,
+            self.PARTICIPANT_1,
             'Telescope: {0}'.format(self.telescope),
-            'Sensor: {0}'.format(self.sensor),
-            'Latitude [deg]: {0} '.format(self.latitude),
-            'Longitude [deg]: {0}'.format(self.longitude),
-            'Elevation [m]: {0}'.format(self.elevation),
-            'Reduction data procedure: {0}'.format(None),
+            'Sensor: {0}'.format(self.SENSORID),
+            'Latitude [deg]: {0} '.format(self.LATITUDE),
+            'Longitude [deg]: {0}'.format(self.LONGITUDE),
+            'Elevation [m]: {0}'.format(self.ALTITUDE),
+            'Reduction data procedure: {0}'.format(self.MODE),
             'Uncertainty: {0}'.format('From TDM'),
             'Magnitude type: {0}'.format('From TDM'),
             'AVG_PHOTOMETRIC_RMS: {0}'.format(self.AVG_PHOTOMETRIC_RMS),
@@ -341,7 +353,7 @@ class LightCurve:
             '-----------------------END METADATA----------------------------',
         ]
 
-        if self.ANGLE_TYPE == 'RADEC':
+        if self.ANGLE_TYPE.strip() == 'RADEC':
             csv.append('OBSid,TimeSinceFirstEpoch[sec],FOVra[deg],FOVdec[deg],SigPlate[deg],'
                        'Mag,PhaseAngle,Distance,STMag,Model')
         else:
@@ -426,14 +438,14 @@ class LightCurve:
     def analyse(self,
                 period_max=2.0, period_min=0.5, period_step=0.01, fap_limit=0.001, long_period_peak_ratio=0.9,
                 cleaning_max_power_ratio=0.2, cleaning_alliase_proximity_ratio=0.2, pdm_bins=20,
-                half_window=10, poly_deg=1, limit_to_single_winow=5, single_window_poly_deg=2,
+                half_window=10, poly_deg=1, limit_to_single_winow=5, single_window_poly_deg=3,
                 export=None, show=False):
 
         #         Calculate disctance, phase and standard magnitude
         try:
             self.distance, self.phase = get_range_phase(
                 self.FIRSTLINE, self.SECONDLINE, self.JD,
-                self.latitude, self.longitude, self.elevation)
+                self.LATITUDE, self.LONGITUDE, self.elevation)
             self.stmag = self.MAG - 5 * np.log10(np.pi/(np.sin(self.phase)+(np.pi-self.phase)*np.cos(self.phase)))
             self.stmag = self.stmag + 5 - 5 * np.log10(self.distance/6378)
             self.RAW_MAG, self.MAG = self.MAG, self.stmag
@@ -470,15 +482,15 @@ class LightCurve:
             self.harmonic_peaks1=[]
             self.low_power_periods1=[]
 
-        self.pdm_per1, self.thetas1, self.pdm_dominant_period1 = full_PDM(self.DT, self.MAG,self.periods1,self.harmonic_peaks1, period_max=2.0, period_min=0.5, period_step=0.001, pdm_bins = 20)
+        self.pdm_per1, self.thetas1, self.pdm_dominant_period1 = full_PDM(self.DT, self.MAG,self.periods1,self.harmonic_peaks1, period_min=0.5, period_step=0.001, pdm_bins = 20)
 
         if self.pdm_dominant_period1 is not None:
             self.pdm_period1 = self.pdm_dominant_period1[1]
         else:
-            if len(self.periods1) > 0:
+            '''if len(self.periods1) > 0:
                 self.pdm_period1 = self.periods1[0][1] * self.periods1[0][6]
-            else:
-                self.pdm_period1 = None
+            else:'''
+            self.pdm_period1 = None
 
         #         test of repetitions to clean residuals
 
@@ -564,7 +576,7 @@ class LightCurve:
             self.low_power_signals2=[]
         
         
-        self.pdm_per2, self.thetas2, self.pdm_dominant_period2 = full_PDM(self.detrended_dt, self.detrended_mag,self.periods2,self.harmonic_peaks2, period_max=2.0, period_min=0.5, period_step=0.001, pdm_bins = 20)
+        self.pdm_per2, self.thetas2, self.pdm_dominant_period2 = full_PDM(self.detrended_dt, self.detrended_mag,self.periods2,self.harmonic_peaks2, period_min=0.5, period_step=0.001, pdm_bins = 20)
         
         if self.pdm_dominant_period2 is not None:
             self.pdm_period2 = self.pdm_dominant_period2[1]
@@ -645,7 +657,7 @@ class LightCurve:
         self.comments.append('RAW LC:')
         if len(self.residuals_test1) > 0:
             self.comments.append('    Repetitions to clean residuals: {0}.'.format(len(self.residuals_test1)))
-        self.comments.append('    Trend: {0}'.format(self.long_period))
+        self.comments.append('    Long Period: {0}'.format(self.long_period))
         if self.long_period:
             self.comments.append('    Possible periodiciy beyond {0} s.'.format(max(self.DT)))
         for period in self.periods1:
@@ -659,7 +671,7 @@ class LightCurve:
         if len(self.low_power_periods1) > 0:
             self.comments.append('    Low Power peaks : [{0}]'.format(','.join(str(ff[1]) for ff in self.low_power_periods1)))
         self.comments.append('DT LC:')
-        self.comments.append('    Trend: {0}'.format(self.long_period2))
+        self.comments.append('    Long Period: {0}'.format(self.long_period2))
         if self.long_period2:
             self.comments.append('    Possible periodiciy beyond {0} s.'.format(max(self.DT)))
         if len(self.residuals_test2) > 0:
