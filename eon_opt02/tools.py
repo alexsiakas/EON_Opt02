@@ -84,7 +84,28 @@ def moving_poly(x,y,w,n):
 
 def detrend(times, mag, half_window=10, poly_deg=1, limit_to_single_winow=5, single_window_poly_deg=3):
 
-    if np.max(times) - np.min(times) < limit_to_single_winow * half_window:
+    num_points = int((np.max(times) - np.min(times))/np.median(times[1:] - times[:-1]))
+    half_window = int(0.05*num_points)
+    if half_window < 1:
+            half_window = 1
+
+    if half_window < 10 or len(times)/num_points <= 0.3  or len(times) < limit_to_single_winow*half_window:
+        trend = np.poly1d(np.polyfit(times , mag, single_window_poly_deg))(times)
+        detrended_times = times
+        detrended_mag = mag - trend
+        trend_type = 'polynomial'
+    else:
+        trend = moving_poly(times, mag, half_window, poly_deg)
+        if half_window==1:
+            detrended_times = times[half_window: -half_window]
+            detrended_mag = mag[half_window: -half_window]  - trend    
+        else:
+            detrended_times = times[half_window + 1: - half_window + 1]
+            detrended_mag = mag[half_window + 1: - half_window + 1]  - trend
+        trend_type = 'moving_poly'
+
+        
+    '''if np.max(times) - np.min(times) < limit_to_single_winow * half_window:
 
         trend = np.poly1d(np.polyfit(times , mag, single_window_poly_deg))(times)
         detrended_times = times
@@ -115,6 +136,7 @@ def detrend(times, mag, half_window=10, poly_deg=1, limit_to_single_winow=5, sin
                 detrended_times = times[half_window + 1: - half_window + 1]
                 detrended_mag = mag[half_window + 1: - half_window + 1]  - trend
             trend_type = 'moving_poly'
+            '''
 
     return trend, detrended_times, detrended_mag, trend_type
 
