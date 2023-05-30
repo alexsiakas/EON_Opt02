@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from fractions import Fraction
 from eon_opt02.tools import *
+import json
+
 
 class LightCurve:
 
@@ -385,6 +387,37 @@ class LightCurve:
 
             print('\n'.join(self.comments))
 
+
+    def history_json(self,directory = None):
+        file_name = f'history_{int(self.NORADID)}.json'
+        t0_UTC = self.UTC[0]
+        new_tracklet = {'trackletID':str(int(self.TRACKLET)),
+                        'epoch':t0_UTC,
+                        'MaxPowerPeriod':self.period,
+                        'MinPDMPeriod':self.pdm_period2,
+                        'LongPeriod':self.long_period,
+                        'PeriodicityClass':self.physical_class,
+                        'AdditionalPeriods':self.additional_periods,
+                        'Harmonics':f'[{",".join(str(ff[1]) for ff in self.harmonic_peaks2)}]',
+                        'LowPower':f'[{",".join(str(ff[1]) for ff in self.low_power_periods2)}]'}
+        #njobj = json.dumps(new_tracklet,indent=9)
+
+        file_exists = os.path.exists(directory+'/'+file_name)
+        if file_exists:
+            with open(directory+'/'+file_name,'r+') as file:
+                file_data = json.load(file)
+                file_data['tracklets'].append(new_tracklet)
+                file.seek(0)
+                json.dump(file_data, file, indent = 4)
+            #print('file exists')
+        else:
+            history = {"NORADID": str(self.NORADID),
+                       "tracklets": [new_tracklet]}
+            new_hist = json.dumps(history,indent=4)
+            with open(directory+'/'+file_name, "w") as outfile:
+                outfile.write(new_hist)
+            #print('create file')
+
     def write_txt(self,directory = None):#self
         t0_UTC = self.UTC[0] # ISO Date of first point in tracklet
         file_name = f'history_{int(self.NORADID)}.txt' # create filename
@@ -429,6 +462,7 @@ class LightCurve:
         self.plot(directory)
         self.csv(directory)
         self.write_txt(directory)
+        self.history_json(directory)
 
     def show(self):
 
@@ -635,13 +669,17 @@ class LightCurve:
                 for period in self.periods2[1:]:
                     self.additional_periods.append(period[1]) #* period[6])
             elif len(self.periods1) == 0 and len(self.periods2) > 0:
-                if self.periods2[0][1]/(max(self.detrended_dt) -min(self.detrended_dt) ) > 0.4 :
+                if self.periods2[0][1]/(max(self.detrended_dt) -min(self.detrended_dt) ) > 0.4 and len(self.harmonic_peaks2) < 1:
                     self.statistical_class = 8.2
                     self.physical_class = 'Aperiodic variable with possible long-term periodicity'
-                    self.fake_peaks2 = np.append(self.fake_peaks2, np.array([self.periods2[0]]), axis=0)
+                    if len(self.fake_peaks2)>0:
+                        self.fake_peaks2 = np.append(self.fake_peaks2, np.array([self.periods2[0]]), axis=0)
+                    else:
+                        self.fake_peaks2=[]
+                        self.fake_peaks2.append(self.periods2[0])
                     self.periods2.pop(0)
                     self.total_signal2 = self.total_signal2 - self.signals2[0]
-                    #self.period = None
+                    self.period = None
                 else:
                     self.statistical_class = 8.1
                     self.physical_class = 'Periodic variable with possible long-term periodicity'

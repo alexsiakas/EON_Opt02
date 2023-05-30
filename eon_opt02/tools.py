@@ -6,6 +6,7 @@ import datetime
 from PyAstronomy.pyTiming import pyPeriod
 from PyAstronomy.pyTiming import pyPDM
 import ephem
+import os
 
 class Scanner:
 
@@ -39,6 +40,10 @@ class Scanner:
 
 pyPDM.Scanner = Scanner
 
+def print_json():
+    os.system('cp /home/alexsiakas/Documents/EON/ESA_Demo_04-05-2023/test_2/history_28904.json  /home/alexsiakas/Documents/EON/ESA_Demo_04-05-2023/test/28904/')
+    os.system('cp /home/alexsiakas/Documents/EON/ESA_Demo_04-05-2023/test_2/history_40544.json  /home/alexsiakas/Documents/EON/ESA_Demo_04-05-2023/test/40544/')
+    return
 
 def conver_to_jd(datetime_in):
     time_dif = datetime_in - datetime.datetime(1600, 1, 1, 0, 0, 0, 0)
@@ -202,10 +207,11 @@ def test_trend(trend, jd, mag, peaks, fake_peaks, harmonic_peaks, trend_type,lim
             hw_min = 10
             for fp in fake_peaks:
                 if abs(fp[1]/(max(jd) - min(jd)) - 1) < 0.5:
-                    step = np.median(jd[1:]-jd[:-1])
-                    num_steps_in_peak = int(fp[1]/step)
-                    window = int(num_steps_in_peak/21)
-                    hw = int((window - 1)/2 if window%2 != 0 else window/2)
+                    #step = np.median(jd[1:]-jd[:-1])
+                    #num_steps_in_peak = int(fp[1]/step)
+                    #window = int(num_steps_in_peak/5)
+
+                    hw = int(0.05*len(mag))#int((window - 1)/2 if window%2 != 0 else window/2)
                     if hw < hw_min:
                         hw_min = hw
 
