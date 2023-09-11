@@ -41,11 +41,6 @@ class Scanner:
 
 pyPDM.Scanner = Scanner
 
-def print_json():
-    os.system('cp /home/alexsiakas/Documents/EON/ESA_Demo_04-05-2023/test_2/history_28904.json  /home/alexsiakas/Documents/EON/ESA_Demo_04-05-2023/test/28904/')
-    os.system('cp /home/alexsiakas/Documents/EON/ESA_Demo_04-05-2023/test_2/history_40544.json  /home/alexsiakas/Documents/EON/ESA_Demo_04-05-2023/test/40544/')
-    return
-
 def conver_to_jd(datetime_in):
     time_dif = datetime_in - datetime.datetime(1600, 1, 1, 0, 0, 0, 0)
     return time_dif.days + (time_dif.seconds + time_dif.microseconds / 1000000.0) / 60.0 / 60.0 / 24.0 + 2305447.5
