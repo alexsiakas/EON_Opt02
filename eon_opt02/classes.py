@@ -10,7 +10,6 @@ from fractions import Fraction
 from eon_opt02.tools import *
 import json
 
-
 class LightCurve:
 
     def __init__(self, file_path, analyse=False, export=None, show=False):
@@ -78,14 +77,10 @@ class LightCurve:
 
         #         Load sensor data
         if not hasattr(self,'LATITUDE') or not hasattr(self,'LONGITUDE') or not hasattr(self,'ALTITUDE'):
-            try:
-                (self.observatory, self.telescope, self.SENSORID, self.filter, self.LATITUDE,
-                self.LONGITUDE, self.ALTITUDE) = get_sensor(self.PARTICIPANT_1)
-            except:
-                (self.observatory, self.telescope, self.SENSORID, self.filter, self.LATITUDE,
-                self.LONGITUDE, self.ALTITUDE) = get_sensor(self.SENSORID)  
-                self.PARTICIPANT_1 = self.observatory  
-                self.MODE = 'Sequential '
+            (self.observatory, self.telescope, self.camera, self.filter, self.LATITUDE,
+            self.LONGITUDE, self.ALTITUDE) = get_sensor(self.SENSORID)  
+            self.PARTICIPANT_1 = self.observatory  
+            self.MODE = 'Sequential '
 
         if not hasattr(self,'telescope'):
             self.telescope = 'No info'
@@ -330,7 +325,7 @@ class LightCurve:
             '-----------------------START METADATA-------------------------',
             self.PARTICIPANT_1,
             'Telescope: {0}'.format(self.telescope),
-            'Sensor: {0}'.format(self.SENSORID),
+            'Sensor: {0}'.format(self.camera),
             'Latitude [deg]: {0} '.format(self.LATITUDE),
             'Longitude [deg]: {0}'.format(self.LONGITUDE),
             'Elevation [m]: {0}'.format(self.ALTITUDE),

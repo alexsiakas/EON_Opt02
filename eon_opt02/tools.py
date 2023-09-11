@@ -7,6 +7,7 @@ from PyAstronomy.pyTiming import pyPeriod
 from PyAstronomy.pyTiming import pyPDM
 import ephem
 import os
+import requests
 
 class Scanner:
 
@@ -51,7 +52,6 @@ def conver_to_jd(datetime_in):
 
 
 def get_sensor(OBSCODE):  
-    #     TODO - implement search in the sensor book
     #     Should return:
     #     observatory (string)
     #     telescope (string)
@@ -60,22 +60,60 @@ def get_sensor(OBSCODE):
     #     latitude (deg)
     #     longitude (deg)
     #     elevation (m)
-    if str(OBSCODE) == 'AUTH1':
-        observatory = 'AUTH1'
-        telescope = 'Rasa8'
-        sensor = 'QHY268'
-        filter = 'none'
-        latitude = 40.562694
-        longitude = 22.995556
-        elevation = 63
+    observatory = 'nan'
+    telescope = 'nan'
+    sensor = 'nan'
+    filter = 'nan'
+    latitude = 'nan'
+    longitude = 'nan'
+    elevation = 'nan'
+    
+    if isinstance(OBSCODE,str):
+        api_url='https://astrodrive.io/api/sensorbook/'+OBSCODE
+        headers = {
+        'Authorization':f'Apikey {acc_key}'
+        }
+
+        try:
+            # Send a GET request with headers
+            response = requests.get(api_url, headers=headers)
+
+            # Check if the request was successful (status code 200)
+            if response.status_code == 200:
+                # Print the response content (usually JSON or HTML)
+                #print(response.json())
+                print('SensorBook data received\n')
+
+                res=response.json()
+
+                observatory = res['code']
+                latitude = res['location']['latitude']
+                longitude = res['location']['longitude']
+                elevation = res['location']['elevation']
+                if setup_id:
+                    for setup in res['setups']:
+                        setup_id_sb = setup['id']
+                        if setup_id_sb==setup_id:
+                            telescope = setup['telescope']['name'].split()[-1]
+                            sensor = setup['camera']['name']
+                            filter = setup['filterWheel']['filters']
+
+                else:
+                    for setup in res['setups']:    
+                        if setup['type']=='Primary':
+                            telescope = setup['telescope']['name'].split()[-1]
+                            sensor = setup['camera']['name']
+                            filter = setup['filterWheel']['filters']
+            else:
+                print(f'GET request failed with status code: {response.status_code}')
+
+        except requests.exceptions.RequestException as e:
+            print('error')
+            print(f'Error: {e}')
     else:
-        observatory = 'nan'
-        telescope = 'nan'
-        sensor = 'nan'
-        filter = 'nan'
-        latitude = 'nan'
-        longitude = 'nan'
-        elevation = 'nan'
+        print('Id not a string')
+        sensor=OBSCODE
+   
     return observatory, telescope, sensor, filter, latitude, longitude, elevation
 
 
