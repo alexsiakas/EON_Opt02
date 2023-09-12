@@ -12,7 +12,7 @@ import json
 
 class LightCurve:
 
-    def __init__(self, file_path, analyse=False, export=None, show=False):
+    def __init__(self, file_path, analyse=False, export=None, show=False, acc_key=None):
 
         self.name = os.path.split(file_path)[1].split('.')[0]
 
@@ -74,13 +74,19 @@ class LightCurve:
         self.DT = np.array([(ff-self.DATETIME[0]).total_seconds() for ff in self.DATETIME])
 
         del tdm, data
+        
+        if not hasattr(self, 'SETUPID'):
+            self.SETUPID=None
 
         #         Load sensor data
         if not hasattr(self,'LATITUDE') or not hasattr(self,'LONGITUDE') or not hasattr(self,'ALTITUDE'):
-            (self.observatory, self.telescope, self.camera, self.filter, self.LATITUDE,
-            self.LONGITUDE, self.ALTITUDE) = get_sensor(self.SENSORID)  
-            self.PARTICIPANT_1 = self.observatory  
-            self.MODE = 'Sequential '
+            if acc_key:
+                (self.observatory, self.telescope, self.camera, self.filter, self.LATITUDE,
+                self.LONGITUDE, self.ALTITUDE) = get_sensor(self.SENSORID,acc_key=acc_key,setup_id=self.SETUPID)  
+                self.PARTICIPANT_1 = self.observatory  
+                self.MODE = 'Sequential'
+            else:
+                raise ValueError('Access key is mandatory to get data from SensorBook')
 
         if not hasattr(self,'telescope'):
             self.telescope = 'No info'

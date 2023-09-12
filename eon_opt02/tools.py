@@ -46,7 +46,7 @@ def conver_to_jd(datetime_in):
     return time_dif.days + (time_dif.seconds + time_dif.microseconds / 1000000.0) / 60.0 / 60.0 / 24.0 + 2305447.5
 
 
-def get_sensor(OBSCODE):  
+def get_sensor(OBSCODE,acc_key=None,setup_id=None):  
     #     Should return:
     #     observatory (string)
     #     telescope (string)
