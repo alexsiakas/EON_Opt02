@@ -15,7 +15,6 @@ class LightCurve:
     def __init__(self, file_path, analyse=False, export=None, show=False, acc_key=None):
 
         self.name = os.path.split(file_path)[1].split('.')[0]
-
         #         Load file
 
         tdm = open(file_path).read()
@@ -78,6 +77,9 @@ class LightCurve:
         if not hasattr(self, 'SETUPID'):
             self.SETUPID=None
 
+        if not hasattr(self,'SENSORID'):
+            self.SENSORID = 'None'
+
         #         Load sensor data
         if not hasattr(self,'LATITUDE') or not hasattr(self,'LONGITUDE') or not hasattr(self,'ALTITUDE'):
             if acc_key:
@@ -93,6 +95,9 @@ class LightCurve:
 
         if not hasattr(self,'filter'):
             self.filter = 'No info'
+
+        if not hasattr(self,'camera'):
+            self.camera = 'No info'
 
         if not hasattr(self,'TRACKLET'):
             self.TRACKLET = self.DATETIME[0].strftime("%Y%m%d%H%M")
