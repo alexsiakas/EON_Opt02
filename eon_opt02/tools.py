@@ -1,5 +1,5 @@
 
-__all__ = ['conver_to_jd', 'get_sensor', 'detrend', 'periodogram', 'get_range_phase', 'build_model', 'FalsePositive', 'test_trend','full_PDM']
+__all__ = ['conver_to_jd', 'get_sensor', 'detrend', 'periodogram', 'get_range_phase', 'build_model', 'Categorize', 'test_trend','full_PDM']
 
 import numpy as np
 import datetime
@@ -143,38 +143,6 @@ def detrend(times, mag, half_window=10, poly_deg=1, limit_to_single_winow=5, sin
         trend_type = 'moving_poly'
 
         
-    '''if np.max(times) - np.min(times) < limit_to_single_winow * half_window:
-
-        trend = np.poly1d(np.polyfit(times , mag, single_window_poly_deg))(times)
-        detrended_times = times
-        detrended_mag = mag - trend
-        trend_type = 'polynomial'
-
-    else:
-
-        half_window = int(half_window / np.median(times[1:] - times[:-1]))
-        if half_window < 1:
-            half_window = 1
-
-        if len(times) < limit_to_single_winow * half_window :
-
-            trend = np.poly1d(np.polyfit(times , mag, single_window_poly_deg))(times)
-            detrended_times = times
-            detrended_mag = mag - trend
-            trend_type = 'polynomial'
-
-        else:
-            if len(times[half_window + 1: - half_window + 1])/len(times) < 0.8:
-                half_window = int(0.1*len(times))
-            trend = moving_poly(times, mag, half_window, poly_deg)
-            if half_window==1:
-                detrended_times = times[half_window: -half_window]
-                detrended_mag = mag[half_window: -half_window]  - trend    
-            else:
-                detrended_times = times[half_window + 1: - half_window + 1]
-                detrended_mag = mag[half_window + 1: - half_window + 1]  - trend
-            trend_type = 'moving_poly'
-            '''
 
     return trend, detrended_times, detrended_mag, trend_type
 
@@ -298,12 +266,6 @@ def test_trend(trend, jd, mag, peaks, fake_peaks, harmonic_peaks, trend_type,lim
                         continue
                     break
 
-                '''periods = np.array(periods)
-                true_periods = periods[true_period_in_trend]
-                _,_,_,_,trend_signals = model_signals(jd,trend,true_periods)
-                trend_out = trend - np.sum(trend_signals,0)
-                jd_out = jd
-                mag_out = mag + np.sum(trend_signals,0)'''
             else:
                 trend_out = trend
                 jd_out = jd
@@ -448,64 +410,14 @@ def periodogram(jd, mag,
 
             peaks.append([pmax, 1./fmax, amax, phase, off, long_period])
 
-        '''low_power_peaks = []
-        #         cleaning weak peaks
-        if len(peaks) > 0:
-            power = np.array([peak[0] for peak in peaks], dtype = float)
-            for pow_idx in range(len(power)):
-                if (power[pow_idx]/np.max(power)) < cleaning_max_power_ratio:
-                    low_power_peaks.append(peaks[pow_idx])
-            peaks = np.delete(peaks,  np.where(power/np.max(power) < cleaning_max_power_ratio)[0], axis=0)
-        '''
+       
     #     not yet    cleaning harmonics
     if len(peaks) > 1:
 
         peaks = sorted(peaks, key=lambda x :-x[0])
 
-        '''cleaning = True
-
-        ratios_to_clean = np.arange(2.0, 9.0, 1.0)
-
-        while cleaning and len(peaks) > 1:
-
-            restart = False
-            #                 print(peaks)
-
-            for i in range(len(peaks)):
-                #                     print(i)
-                for j in range(len(peaks)):
-                    #                         print(j)
-                    if i != j:
-                        test = max(peaks[i][1] / peaks[j][1], peaks[j][1] / peaks[i][1])
-                        if min(np.abs(test - ratios_to_clean)) <  cleaning_alliase_proximity_ratio:
-                            to_clean = [i,j][int(peaks[i][0] > peaks[j][0])]
-                            if not peaks[to_clean][5]:
-                                #                                     print('cleaning... ', to_clean)
-                                peaks = np.delete(peaks, [to_clean], axis=0)
-                                #                                     print(peaks)
-                                restart = True
-                                break
-                if restart:
-                    break
-
-            if not restart:
-                cleaning = False'''
-
-
-
-
-
-
-
     #         models ans PDM
     periods, long_period, total_signal, lt_signal, signals  = model_signals(jd, mag, peaks)
-    #low_power_periods, _, low_power_total_signal,_,low_power_signals = model_signals(jd,mag,low_power_peaks)
-    #if len(low_power_periods)>0:
-    #    total_signal = total_signal+np.sum(low_power_signals,0)
-    
-
-    #pdm_peaks = []
-    #pdm_peak_thetas = []
 
     for period_idx in range(len(periods)):
 
@@ -520,11 +432,10 @@ def periodogram(jd, mag,
         P = pyPDM.PyPDM(jd, isolated_signal)
         pdm_per, thetas = P.pdmEquiBin(pdm_bins, S)
         periods[period_idx].append(np.argmin(thetas) + 1)
-        #pdm_peaks.append(pdm_per)
-        #pdm_peak_thetas.append(thetas)
 
 
-    return np.array(periodogram), np.array(periods), long_period, np.array(total_signal), np.array(lt_signal), np.array(signals), np.array(fake_peaks) #, np.array(low_power_periods),np.array(low_power_signals) #, np.array(harmonic_periods), np.array(pdm_peaks), np.array(pdm_peak_thetas),np.array(harmonic_signals)
+
+    return np.array(periodogram), np.array(periods), long_period, np.array(total_signal), np.array(lt_signal), np.array(signals), np.array(fake_peaks)
 
 def full_PDM(jd, mag, dominant_periods,harmonic_periods, period_min=0.5, period_step=0.001, pdm_bins = 20 ):
     periods = np.arange(
@@ -619,7 +530,7 @@ def model_signals (jd,mag,peaks):
     return periods, long_period, total_signal, lt_signal, signals
 
 
-def FalsePositive(jd,mag, peaks, signals, false_limit = 0.2,
+def Categorize(jd,mag, peaks, signals, false_limit = 0.2,
                 period_max=2.0, period_min=0.5, period_step=0.01, fap_limit=0.001, long_period_peak_ratio=0.9,
                 cleaning_max_power_ratio=0.2, cleaning_alliase_proximity_ratio =0.2,
                 pdm_bins = 20):
@@ -647,49 +558,6 @@ def FalsePositive(jd,mag, peaks, signals, false_limit = 0.2,
     ## 
     ###########################################################################
     
-    # This is the normal procedure
-    #tot_sig = np.sum(signals, 0)
-    #harm_tot_sig = np.sum(harmonic_signals,0)
-    #tot_sig = tot_sig-harm_tot_sig
-    # remove detected signals from the list
-    #clean_mag = np.ones_like(mag) * mag - tot_sig
-    
-    #compute periods on the "cleaned" list
-    '''(_, periods, _, _, _,_) = periodogram(jd, clean_mag, period_max=period_max, period_min=period_min,
-                                      period_step=period_step, fap_limit=fap_limit,
-                                      long_period_peak_ratio=long_period_peak_ratio,
-                                      cleaning_max_power_ratio=cleaning_max_power_ratio,
-                                      cleaning_alliase_proximity_ratio=cleaning_alliase_proximity_ratio,
-                                      pdm_bins=pdm_bins)
-    
-    # check if any of the new peaks is close enough to the old ones
-    false_pos_index = []
-    if len(periods) > 0:    
-        for peak_idx in range(len(peaks)):
-            for period_idx in range(len(periods)):
-                if np.abs(peaks[peak_idx][1] - periods[period_idx][1])/peaks[peak_idx][1] < false_limit: # |T_old - T_new|/T_old < limit
-                    false_pos_index.append(peak_idx)
-'''
-    # altervative checking one peack at a time
-    '''false_pos_index = []
-    h_false_pos_index = []
-    for peak_idx in range(len(peaks)):
-        clean_mag = mag - signals[peak_idx]
-        (_, periods, _, _, _,_,_) = periodogram(jd, clean_mag, period_max=period_max, period_min=period_min,
-                                      period_step=period_step, fap_limit=fap_limit,
-                                      long_period_peak_ratio=long_period_peak_ratio,
-                                      cleaning_max_power_ratio=cleaning_max_power_ratio,
-                                      cleaning_alliase_proximity_ratio=cleaning_alliase_proximity_ratio,
-                                      pdm_bins=pdm_bins)
-        
-        for period_idx in range(len(periods)):
-            if np.abs(peaks[peak_idx][1] - periods[period_idx][1])/peaks[peak_idx][1] < false_limit: # |T_old - T_new|/T_old < limit
-                false_pos_index.append(peak_idx)'''
-
-
-
-    #peaks_out = np.delete(peaks, false_pos_index, axis=0)
-    #fake_peaks = peaks[false_pos_index]
     
     peaks_out = peaks
     harmonic_peaks = []

@@ -511,7 +511,7 @@ class LightCurve:
         if len(self.periods1) > 0:
             (self.periods1, self.total_signal1, 
             self.signals1, self.harmonic_peaks1,self.harmonic_signals1
-            ,self.low_power_periods1, self.low_power_signals1) = FalsePositive(self.DT, self.MAG, self.periods1, self.signals1,false_limit = 0.2,
+            ,self.low_power_periods1, self.low_power_signals1) = Categorize(self.DT, self.MAG, self.periods1, self.signals1,false_limit = 0.2,
                                       period_max=period_max, period_min=period_min,
                                       period_step=period_step, fap_limit=fap_limit,
                                       long_period_peak_ratio=long_period_peak_ratio,
@@ -602,7 +602,7 @@ class LightCurve:
         if len(self.periods2)>0:
             (self.periods2, self.total_signal2,
              self.signals2, self.harmonic_peaks2,self.harmonic_signals2,
-             self.low_power_periods2, self.low_power_signals2) = FalsePositive(self.detrended_dt, self.detrended_mag, self.periods2,self.signals2, false_limit = 0.2,
+             self.low_power_periods2, self.low_power_signals2) = Categorize(self.detrended_dt, self.detrended_mag, self.periods2,self.signals2, false_limit = 0.2,
                                       period_max=period_max, period_min=period_min,
                                       period_step=period_step, fap_limit=fap_limit,
                                       long_period_peak_ratio=long_period_peak_ratio,
