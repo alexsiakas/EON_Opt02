@@ -1,5 +1,5 @@
 
-__all__ = ['conver_to_jd', 'get_sensor', 'detrend', 'periodogram', 'get_range_phase', 'build_model', 'Categorize', 'test_trend','full_PDM']
+__all__ = ['conver_to_jd', 'get_sensor', 'detrend', 'periodogram', 'get_range_phase', 'build_model', 'Categorize', 'test_trend','full_PDM','get_file_format']
 
 import numpy as np
 import datetime
@@ -8,6 +8,8 @@ from PyAstronomy.pyTiming import pyPDM
 import ephem
 import os
 import requests
+import xml.etree.ElementTree as ET
+
 
 class Scanner:
 
@@ -696,4 +698,15 @@ def get_range_phase(tle_line1, tle_line2, dates, sensor_lat, sensor_lon, sensor_
     return outrange,outphase
 
 
-
+def get_file_format(file_path):
+    _, extension = os.path.splitext(file_path)
+    if extension == '.tdm' or extension == '.kvn':
+        return 'tdm'
+    elif extension == '.xml':
+        return 'xml'
+    else:
+        try:
+            ET.parse(file_path)
+            return 'xml'
+        except ET.ParseError:
+            return 'tdm'

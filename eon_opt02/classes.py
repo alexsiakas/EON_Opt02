@@ -9,6 +9,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from fractions import Fraction
 from eon_opt02.tools import *
 import json
+import xml.etree.ElementTree as ET
 
 class LightCurve:
 
@@ -16,54 +17,172 @@ class LightCurve:
 
         self.name = os.path.split(file_path)[1].split('.')[0]
         #         Load file
+        file_format = get_file_format(file_path)
+        print(f'Input format {file_format}')
 
-        tdm = open(file_path).read()
+
+        if file_format=='tdm':
+            tdm = open(file_path).read()
+        elif file_format=='xml':
+            tree = ET.parse(file_path)
+            tdm = tree.getroot()
+            for child in tdm:
+                #print(child.tag, child.text)
+                if 'header' in child.tag:
+                    header_tag = child.tag.split('header')[0]
+                    #print(header_tag)
+                if 'body' in child.tag:
+                    body_tag = child.tag.split('body')[0]
+                    #print(body_tag)
 
         #         Load meta-data, they can be acessed by directly from LightCurve object
         #         e.g. lightgurve.SENSORid
+        if file_format=='tdm':
+            for line in tdm.split('DATA_START')[0].split('\n'):
+                line = line.replace('COMMENT', '')
+                if '=' in line:
+                    columns = line.split('=')
+                    try:
+                        setattr(self, columns[0].replace(' ', ''), float(columns[1]))
+                    except ValueError:
+                        setattr(self, columns[0].replace(' ', ''), str(columns[1]))
+        elif file_format=='xml':
+                header_element = tdm.find(f"{header_tag}header")
+                body_element = tdm.find(f"{body_tag}body")
+                seg = body_element.find(f"{body_tag}segment")
+                meta_data = seg.find(f"{body_tag}metadata")
+                data_element = seg.find(f"{body_tag}data")
 
-        for line in tdm.split('DATA_START')[0].split('\n'):
-            line = line.replace('COMMENT', '')
-            if '=' in line:
-                columns = line.split('=')
-                try:
-                    setattr(self, columns[0].replace(' ', ''), float(columns[1]))
-                except ValueError:
-                    setattr(self, columns[0].replace(' ', ''), str(columns[1]))
+                for element in header_element:
+                    if element.tag == f'{header_tag}COMMENT':
+                        #print(element.text.split('=')[0],element.text.split('=')[1])
+                        atr = element.text.split('=')[0]
+                        try:
+                            value = float(element.text.split('=')[1])
+                        except:
+                            value = str(element.text.split('=')[1])
+                    else :    
+                        #print(element.tag.split('}')[1],element.text)
+                        try:
+                            atr = element.tag.split('}')[1]
+                        except:
+                            atr = element.tag
+                        
+                        try:
+                            value = float(element.text)
+                        except:
+                            value = str(element.text)
+                    setattr(self,atr,value)
+                
+                for element in meta_data:
+                    if element.tag == f'{body_tag}COMMENT':
+                        #print(element.text.split('=')[0],element.text.split('=')[1])
+                        atr = element.text.split('=')[0]
+                        try:
+                            value = float(element.text.split('=')[1])
+                        except:
+                            value = str(element.text.split('=')[1])
+                    else :    
+                        #print(element.tag.split('}')[1],element.text)
+                        try:
+                            atr = element.tag.split('}')[1]
+                        except:
+                            atr = element.tag
+                        
+                        try:
+                            value = float(element.text)
+                        except:
+                            value = str(element.text)
+                    setattr(self,atr,value)
 
         #         Load data, calculate jd and sort by time, they can be acessed by directly from LightCurve object
         #         e.g. lightgurve.MAG
         #         Add also UTC, JD and DT attributes (DT is the time since the start of the observation in seconds)
 
         data = {}
+        if file_format=='tdm':
+            for line in tdm.split('DATA_START')[1].split('DATA_STOP')[0].split('\n'):
+                if 'MAG' in line:
+                    utc = line.split()[2]
+                    year, month, day = utc.split('T')[0].split('-')
+                    hour, minute, second = utc.split('T')[1].split(':')
+                    if '.' in second:
+                        second, microseconds = second.split('.')
+                    else:
+                        microseconds = '0'
+                    while len(microseconds) > 6:
+                        microseconds = str(round(float(microseconds)/10))
+                    microseconds = microseconds.ljust(6, '0')
+                    dt_obj = datetime.datetime(int(year), int(month), int(day), int(hour), int(minute), int(second),
+                                            int(microseconds))
+                    data[utc] = {'JD': conver_to_jd(dt_obj), 'DATETIME': dt_obj}
+        elif file_format=='xml':
+            for element in data_element:
+                if element.tag == f'{body_tag}observation':
+                    mag = element.find(f'{body_tag}MAG')
+                    if mag is not None:
+                        epoch = element.find(f'{body_tag}EPOCH')
+                        utc = epoch.text
+                        year, month, day = utc.split('T')[0].split('-')
+                        hour, minute, second = utc.split('T')[1].split(':')
+                        if '.' in second:
+                            second, microseconds = second.split('.')
+                            microseconds = microseconds.split('Z')[0]
+                        else:
+                            microseconds = '0'
+                        while len(microseconds) > 6:
+                            microseconds = str(round(float(microseconds)/10))
+                        microseconds = microseconds.ljust(6, '0')
+                        dt_obj = datetime.datetime(int(year), int(month), int(day), int(hour), int(minute), int(second),
+                                                int(microseconds))
+                        #print(dt_obj, mag.text)
+                        data[utc] = {'JD': conver_to_jd(dt_obj), 'DATETIME': dt_obj}
 
-        for line in tdm.split('DATA_START')[1].split('DATA_STOP')[0].split('\n'):
-            if 'MAG' in line:
-                utc = line.split()[2]
-                year, month, day = utc.split('T')[0].split('-')
-                hour, minute, second = utc.split('T')[1].split(':')
-                if '.' in second:
-                    second, microseconds = second.split('.')
-                else:
-                    microseconds = '0'
-                while len(microseconds) > 6:
-                    microseconds = str(round(float(microseconds)/10))
-                microseconds = microseconds.ljust(6, '0')
-                dt_obj = datetime.datetime(int(year), int(month), int(day), int(hour), int(minute), int(second),
-                                           int(microseconds))
-                data[utc] = {'JD': conver_to_jd(dt_obj), 'DATETIME': dt_obj}
+
 
         time_series_keys = ['JD', 'DATETIME']
-        for line in tdm.split('DATA_START')[1].split('DATA_STOP')[0].split('\n'):
-            line = line.replace('COMMENT', '')
-            if '=' in line:
-                columns = [ff.replace(' ', '') for ff in line.replace('=', ' ').split()]
-                try:
-                    data[columns[1]][columns[0]] = float(columns[2])
-                except ValueError:
-                    data[columns[1]][columns[0]] = str(columns[2])
-                if columns[0] not in time_series_keys:
-                    time_series_keys.append(columns[0])
+
+        if file_format=='tdm': 
+            for line in tdm.split('DATA_START')[1].split('DATA_STOP')[0].split('\n'):
+                line = line.replace('COMMENT', '')
+                if '=' in line:
+                    columns = [ff.replace(' ', '') for ff in line.replace('=', ' ').split()]
+                    try:
+                        data[columns[1]][columns[0]] = float(columns[2])
+                    except ValueError:
+                        data[columns[1]][columns[0]] = str(columns[2])
+                    if columns[0] not in time_series_keys:
+                        time_series_keys.append(columns[0])
+        elif file_format=='xml':
+            for element in data_element:
+                if element.tag == f'{body_tag}observation':
+                    for el in element:
+                        if el.tag == f'{body_tag}EPOCH':
+                            epo = el.text
+                        else:
+                            try:
+                                key = el.tag.split('}')[1]
+                            except:
+                                key = el.tag
+
+                            try:
+                                val = float(el.text)
+                            except:
+                                val = str(el.text)
+                    
+                elif element.tag == f'{body_tag}COMMENT':
+                    columns = [ff.replace(' ', '') for ff in element.text.replace('=', ' ').split()]
+
+                    epo = str(columns[1])
+                    key = str(columns[0])
+                    try:
+                        val = float(columns[2])
+                    except:
+                        val = str(columns[2])
+                        
+                data[epo][key] = val
+                if key not in time_series_keys:
+                    time_series_keys.append(key)
 
         self.UTC = np.array(sorted(list(data.keys()), key=lambda x: data[x]['JD']))
 
@@ -74,6 +193,12 @@ class LightCurve:
 
         del tdm, data
         
+        if not hasattr(self, 'AVG_PHOTOMETRIC_RMS'):
+            try:
+                self.AVG_PHOTOMETRIC_RMS = np.mean(self.PHOTOMETRIC_RMS)
+            except:
+                self.AVG_PHOTOMETRIC_RMS = None
+
         if not hasattr(self, 'SETUPID'):
             self.SETUPID=None
 
@@ -88,7 +213,10 @@ class LightCurve:
                 self.PARTICIPANT_1 = self.observatory  
                 self.MODE = 'Sequential'
             else:
-                raise ValueError('Access key is mandatory to get data from SensorBook')
+                print('WARNING: Access key and Position Coordinates not available')
+                self.LATITUDE = None
+                self.LONGITUDE = None
+                self.ALTITUDE = None
 
         if not hasattr(self,'telescope'):
             self.telescope = 'No info'
@@ -374,7 +502,7 @@ class LightCurve:
                 str(self.DT[entry]),
                 str(self.ANGLE_1[entry]),
                 str(self.ANGLE_2[entry]),
-                str(self.PLATE_SOLUTION_RMS[entry]),
+                str(self.PLATE_SOLUTION_RMS[entry]) if hasattr(self, "PLATE_SOLUTION_RMS")  else "",
                 str(self.RAW_MAG[entry]),
                 #str(self.PHOTOMETRIC_RMS[entry]),
                 str(self.phase[entry]),
@@ -486,8 +614,8 @@ class LightCurve:
             self.distance, self.phase = get_range_phase(
                 self.FIRSTLINE, self.SECONDLINE, self.JD,
                 self.LATITUDE, self.LONGITUDE, self.ALTITUDE)
-            self.stmag = self.MAG - 5 * np.log10(np.pi/(np.sin(self.phase)+(np.pi-self.phase)*np.cos(self.phase)))
-            self.stmag = self.stmag + 5 - 5 * np.log10(self.distance/6378)
+            self.stmag = self.MAG - 2.5 * np.log10(np.pi/(np.sin(self.phase)+(np.pi-self.phase)*np.cos(self.phase)))
+            self.stmag = self.stmag + 5 - 5 * np.log10(self.distance/35786)
             self.RAW_MAG, self.MAG = self.MAG, self.stmag
         except:
             self.distance, self.phase = np.ones_like(self.JD) * np.nan, np.ones_like(self.JD) * np.nan
@@ -783,3 +911,4 @@ class LightCurve:
 
         if show:
             self.show()
+            
