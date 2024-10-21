@@ -19,7 +19,7 @@ class LightCurve:
         #         Load file
         file_format = get_file_format(file_path)
         print(f'Input format {file_format}')
-
+        #print('New print case')
 
         if file_format=='tdm':
             tdm = open(file_path).read()
@@ -218,6 +218,12 @@ class LightCurve:
                 self.LONGITUDE = None
                 self.ALTITUDE = None
 
+        if not hasattr(self, 'PARTICIPANT_1'):
+            self.PARTICIPANT_1='No info'
+        
+        if not hasattr(self, 'MODE'):
+            self.MODE='No info'
+        
         if not hasattr(self,'telescope'):
             self.telescope = 'No info'
 
@@ -535,12 +541,20 @@ class LightCurve:
                         'Harmonics':f'[{",".join(str(ff[1]) for ff in self.harmonic_peaks2)}]',
                         'LowPower':f'[{",".join(str(ff[1]) for ff in self.low_power_periods2)}]'}
         #njobj = json.dumps(new_tracklet,indent=9)
+        
+        keywords =  ['trackletID','epoch','MaxPowerPeriod','MinPDMPeriod','LongPeriod','PeriodicityClass','AdditionalPeriods','Harmonics','LowPower']
 
         file_exists = os.path.exists(directory+'/'+file_name)
         if file_exists:
             with open(directory+'/'+file_name,'r+') as file:
                 file_data = json.load(file)
-                file_data['tracklets'].append(new_tracklet)
+                for index, tracklet in enumerate(file_data['tracklets']):
+                    if tracklet.get("trackletID") == new_tracklet['trackletID']:
+                        for keyword in keywords:
+                            tracklet[keyword] = new_tracklet[keyword]
+                        break
+                else:
+                    file_data['tracklets'].append(new_tracklet)
                 file.seek(0)
                 json.dump(file_data, file, indent = 4)
             #print('file exists')
@@ -604,7 +618,7 @@ class LightCurve:
         self.csv()
 
     def analyse(self,
-                period_max=2.0, period_min=0.5, period_step=0.01, fap_limit=0.001, long_period_peak_ratio=0.9,
+                period_max=2.0, period_min=0.5, period_step=0.01, fap_limit=0.00001, long_period_peak_ratio=0.9,
                 cleaning_max_power_ratio=0.2, cleaning_alliase_proximity_ratio=0.2, pdm_bins=20,
                 half_window=10, poly_deg=1, limit_to_single_winow=5, single_window_poly_deg=3,
                 export=None, show=False):
@@ -617,10 +631,12 @@ class LightCurve:
             self.stmag = self.MAG - 2.5 * np.log10(np.pi/(np.sin(self.phase)+(np.pi-self.phase)*np.cos(self.phase)))
             self.stmag = self.stmag + 5 - 5 * np.log10(self.distance/35786)
             self.RAW_MAG, self.MAG = self.MAG, self.stmag
+            print('Distance/phase angle corrected')
         except:
             self.distance, self.phase = np.ones_like(self.JD) * np.nan, np.ones_like(self.JD) * np.nan
             self.stmag = np.ones_like(self.JD) * np.nan
             self.RAW_MAG, self.MAG = self.MAG, self.MAG
+            print('No distance/phase angle corrections')
 
         #         raw lightcurve analysis
 

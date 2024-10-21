@@ -123,7 +123,8 @@ def moving_poly(x,y,w,n):
 
 
 def detrend(times, mag, half_window=10, poly_deg=1, limit_to_single_winow=5, single_window_poly_deg=3):
-
+    print('Execute detrending')
+    
     num_points = int((np.max(times) - np.min(times))/np.median(times[1:] - times[:-1]))
     half_window = int(0.05*num_points)
     if half_window < 1:
@@ -143,6 +144,7 @@ def detrend(times, mag, half_window=10, poly_deg=1, limit_to_single_winow=5, sin
             detrended_times = times[half_window + 1: - half_window + 1]
             detrended_mag = mag[half_window + 1: - half_window + 1]  - trend
         trend_type = 'moving_poly'
+    print(f'Trend type : {trend_type}')
 
         
 
@@ -162,7 +164,9 @@ def test_trend(trend, jd, mag, peaks, fake_peaks, harmonic_peaks, trend_type,lim
     ## and can only exist after detrend function
     ###########################################################################
     trend_periodogram = None
+    print('Testing Trend')
     if trend_type == 'moving_poly':
+        print('test_trend')
     # find periods in trend 
         (trend_periodogram, periods, Long_p, _, _,_) = periodogram_trend(jd, trend, period_max=period_max, period_min=period_min,
                                       period_step=period_step, fap_limit=fap_limit,
@@ -186,6 +190,7 @@ def test_trend(trend, jd, mag, peaks, fake_peaks, harmonic_peaks, trend_type,lim
         #print(real_peaks)
         
         if len(periods)>0:
+            print('found peak in trend')
             true_period_in_trend = []
 
             for period_idx in range(len(periods)):
@@ -349,7 +354,7 @@ def periodogram_trend(jd, mag,
 
 
 def periodogram(jd, mag,
-                period_max=2.0, period_min=0.5, period_step=0.01, fap_limit=0.001, long_period_peak_ratio=0.9,
+                period_max=2.0, period_min=0.5, period_step=0.01, fap_limit=0.00001, long_period_peak_ratio=0.9,
                 cleaning_max_power_ratio=0.2, cleaning_alliase_proximity_ratio =0.2,
                 pdm_bins = 20):
 
@@ -695,6 +700,7 @@ def get_range_phase(tle_line1, tle_line2, dates, sensor_lat, sensor_lon, sensor_
         phase = np.arctan2(rsun * np.sin(psi),(rsat - rsun * np.cos(psi))) #phase angle
         outrange[i] = rsat # add to output list
         outphase[i] = phase # add to output list
+    print('Phase angle and distance computation completed')
     return outrange,outphase
 
 
